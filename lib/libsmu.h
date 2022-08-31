@@ -24,7 +24,7 @@
 #include <pthread.h>
 
 /* Version the loaded driver must use to be compatible. */
-#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.2"
+#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.3"
 
 /**
  * SMU Mailbox Target
@@ -32,6 +32,7 @@
 enum smu_mailbox {
     TYPE_RSMU,
     TYPE_MP1,
+    TYPE_HSMP,
 };
 
 /**
@@ -132,6 +133,7 @@ typedef struct {
     int                         fd_smn;
     int                         fd_rsmu_cmd;
     int                         fd_mp1_smu_cmd;
+    int                         fd_hsmp_smu_cmd;
     int                         fd_smu_args;
     int                         fd_pm_table;
 

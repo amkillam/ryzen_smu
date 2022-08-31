@@ -104,6 +104,7 @@ enum smu_if_version {
 enum smu_mailbox {
     MAILBOX_TYPE_RSMU,
     MAILBOX_TYPE_MP1,
+    MAILBOX_TYPE_HSMP,
 
     MAILBOX_TYPE_COUNT
 };
