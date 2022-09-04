@@ -369,8 +369,8 @@ LOG_RSMU:
         case CODENAME_VERMEER:
         case CODENAME_MILAN:
             g_smu.addr_hsmp_mb_cmd = 0x3B10534;
-            g_smu.addr_hsmp_mb_rsp = 0x3B10570;
-            g_smu.addr_hsmp_mb_args = 0x3B10A40;
+            g_smu.addr_hsmp_mb_rsp = 0x3B10980;
+            g_smu.addr_hsmp_mb_args = 0x3B109E0;
             goto LOG_HSMP;
         case CODENAME_COLFAX:
         case CODENAME_SUMMITRIDGE:
