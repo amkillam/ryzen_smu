@@ -27,6 +27,9 @@ The following processor code names are supported:
 - [Cezanne](https://en.wikichip.org/wiki/amd/cores/cezanne)
 - [Milan](https://en.wikichip.org/wiki/amd/cores/milan)
 - [Dali](https://en.wikichip.org/wiki/amd/cores/dali)
+- [Chagall](https://en.wikichip.org/wiki/amd/cores/chagall)
+- [Naples](https://en.wikichip.org/wiki/amd/cores/naples)
+- [Lucienne](https://en.wikichip.org/wiki/amd/cores/lucienne)
 
 In addition, for the following models, the power metrics/monitoring (PM) table (seen in screenshot)
 can also be accessed:
@@ -156,7 +159,7 @@ SMU v46.54.0
 4
 
 # cat /sys/kernel/ryzen_smu_drv/drv_version
-0.0.1
+0.1.4
 
 ```
 

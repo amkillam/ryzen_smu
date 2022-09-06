@@ -244,11 +244,13 @@ int smu_resolve_cpu_class(struct pci_dev* dev) {
             case 0x01:
                 if (pkg_type == 7)
                     g_smu.codename = CODENAME_THREADRIPPER;
+                else if (pkg_type == 4)
+                    g_smu.codename = CODENAME_NAPLES;
                 else
                     g_smu.codename = CODENAME_SUMMITRIDGE;
                 break;
             case 0x08:
-                if (pkg_type == 7)
+                if (pkg_type == 7 || pkg_type == 4)
                     g_smu.codename = CODENAME_COLFAX;
                 else
                     g_smu.codename = CODENAME_PINNACLERIDGE;
@@ -270,6 +272,9 @@ int smu_resolve_cpu_class(struct pci_dev* dev) {
                 break;
             case 0x60:
                 g_smu.codename = CODENAME_RENOIR;
+                break;
+            case 0x68:
+                g_smu.codename = CODENAME_LUCIENNE;
                 break;
             case 0x71:
                 g_smu.codename = CODENAME_MATISSE;
@@ -332,6 +337,7 @@ int smu_init(struct pci_dev* dev) {
             g_smu.addr_rsmu_mb_args = 0x3B10A40;
             goto LOG_RSMU;
         case CODENAME_COLFAX:
+        case CODENAME_NAPLES:
         case CODENAME_SUMMITRIDGE:
         case CODENAME_THREADRIPPER:
         case CODENAME_PINNACLERIDGE:
@@ -340,6 +346,7 @@ int smu_init(struct pci_dev* dev) {
             g_smu.addr_rsmu_mb_args = 0x3B10590;
             goto LOG_RSMU;
         case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
         case CODENAME_PICASSO:
         case CODENAME_CEZANNE:
         case CODENAME_RAVENRIDGE:
@@ -372,13 +379,15 @@ LOG_RSMU:
             g_smu.addr_hsmp_mb_rsp = 0x3B10980;
             g_smu.addr_hsmp_mb_args = 0x3B109E0;
             goto LOG_HSMP;
+        case CODENAME_CEZANNE:
         case CODENAME_COLFAX:
+        case CODENAME_NAPLES:
         case CODENAME_SUMMITRIDGE:
         case CODENAME_THREADRIPPER:
         case CODENAME_PINNACLERIDGE:
         case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
         case CODENAME_PICASSO:
-        case CODENAME_CEZANNE:
         case CODENAME_RAVENRIDGE:
         case CODENAME_RAVENRIDGE2:
         case CODENAME_DALI:
@@ -399,6 +408,7 @@ MP1_DETECT:
     // Detect MP1 SMU mailbox address.
     switch (g_smu.codename) {
         case CODENAME_COLFAX:
+        case CODENAME_NAPLES:
         case CODENAME_SUMMITRIDGE:
         case CODENAME_THREADRIPPER:
         case CODENAME_PINNACLERIDGE:
@@ -426,6 +436,7 @@ MP1_DETECT:
             g_smu.addr_mp1_mb_args  = 0x3B109C4;
             break;
         case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
         case CODENAME_CEZANNE:
             g_smu.mp1_if_ver        = IF_VERSION_12;
             g_smu.addr_mp1_mb_cmd   = 0x3B10528;
@@ -499,6 +510,11 @@ u64 smu_get_dram_base_address(struct pci_dev* dev) {
     smu_args_init(&args, 0);
 
     switch (g_smu.codename) {
+        case CODENAME_NAPLES:
+        case CODENAME_SUMMITRIDGE:
+        case CODENAME_THREADRIPPER:
+            fn[0] = 0xa;
+            goto BASE_ADDR_CLASS_1;
         case CODENAME_VERMEER:
         case CODENAME_MATISSE:
         case CODENAME_CASTLEPEAK:
@@ -506,6 +522,7 @@ u64 smu_get_dram_base_address(struct pci_dev* dev) {
             fn[0] = 0x06;
             goto BASE_ADDR_CLASS_1;
         case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
         case CODENAME_CEZANNE:
             fn[0] = 0x66;
             goto BASE_ADDR_CLASS_1;
@@ -597,6 +614,11 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev* dev) {
     smu_args_init(&args, 0);
 
     switch (g_smu.codename) {
+        case CODENAME_SUMMITRIDGE:
+        case CODENAME_THREADRIPPER:
+        case CODENAME_NAPLES:
+            fn = 0x0a;
+            break;
         case CODENAME_MATISSE:
         case CODENAME_VERMEER:
         case CODENAME_MILAN:
@@ -606,6 +628,7 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev* dev) {
             fn = 0x65;
             break;
         case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
             args.s.arg0 = 3;
             fn = 0x65;
             break;
@@ -643,6 +666,7 @@ enum smu_return_val smu_get_pm_table_version(struct pci_dev* dev, u32* version) 
             fn = 0x08;
             break;
         case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
         case CODENAME_CEZANNE:
             fn = 0x06;
             break;
@@ -715,6 +739,7 @@ u32 smu_update_pmtable_size(u32 version) {
             }
             break;
         case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
             switch (version) {
                 case 0x370000:
                     g_smu.pm_dram_map_size = 0x794;
@@ -785,10 +810,11 @@ enum smu_return_val smu_read_pm_table(struct pci_dev* dev, unsigned char* dst, s
         version = 0xDEADC0DE;
 
         // These models require finding the PM table version to determine its size.
-        if (g_smu.codename == CODENAME_VERMEER ||
-            g_smu.codename == CODENAME_MATISSE ||
-            g_smu.codename == CODENAME_RENOIR  ||
-            g_smu.codename == CODENAME_CEZANNE ||
+        if (g_smu.codename == CODENAME_VERMEER  ||
+            g_smu.codename == CODENAME_MATISSE  ||
+            g_smu.codename == CODENAME_RENOIR   ||
+            g_smu.codename == CODENAME_LUCIENNE ||
+            g_smu.codename == CODENAME_CEZANNE  ||
             g_smu.codename == CODENAME_MILAN) {
             ret = smu_get_pm_table_version(dev, &version);
 
@@ -811,8 +837,8 @@ enum smu_return_val smu_read_pm_table(struct pci_dev* dev, unsigned char* dst, s
     // Validate output buffer size.
     // N.B. In the case of Picasso/RavenRidge 2, we include the secondary PM Table size as well
     if (*len < g_smu.pm_dram_map_size) {
-        pr_warn("Insufficient buffer size for PM table read: %lu < %d",
-            *len, g_smu.pm_dram_map_size);
+        pr_warn("Insufficient buffer size for PM table read: %lu < %d version: 0x%X",
+            *len, g_smu.pm_dram_map_size, version);
 
         *len = g_smu.pm_dram_map_size;
         return SMU_Return_InsufficientSize;

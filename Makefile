@@ -1,4 +1,4 @@
-VERSION					:= 0.1.3
+VERSION					:= 0.1.4
 TARGET					:= $(shell uname -r)
 DKMS_ROOT_PATH			:= /usr/src/ryzen_smu-$(VERSION)
 
@@ -32,7 +32,7 @@ clean:
 	rm -rf *.o
 
 dkms-install:
-	mkdir $(DKMS_ROOT_PATH)
+	mkdir -p $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/dkms.conf $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/Makefile $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/*.c $(DKMS_ROOT_PATH)
