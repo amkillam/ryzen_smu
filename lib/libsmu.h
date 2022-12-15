@@ -24,7 +24,7 @@
 #include <pthread.h>
 
 /* Version the loaded driver must use to be compatible. */
-#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.4"
+#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.5"
 
 /**
  * SMU Mailbox Target
@@ -93,6 +93,7 @@ typedef enum {
     CODENAME_DALI,
     CODENAME_LUCIENNE,
     CODENAME_NAPLES,
+    CODENAME_CHAGALL,
 
     CODENAME_COUNT
 } smu_processor_codename;

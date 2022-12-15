@@ -295,6 +295,9 @@ int smu_resolve_cpu_class(struct pci_dev* dev) {
             case 0x01:
                 g_smu.codename = CODENAME_MILAN;
                 break;
+            case 0x08:
+                g_smu.codename = CODENAME_CHAGALL;
+                break;
             case 0x20:
             case 0x21:
                 g_smu.codename = CODENAME_VERMEER;
@@ -305,8 +308,11 @@ int smu_resolve_cpu_class(struct pci_dev* dev) {
             case 0x50:
                 g_smu.codename = CODENAME_CEZANNE;
                 break;
+            case 0x61:
+                g_smu.codename = CODENAME_RAPHAEL;
+                break;
             default:
-                pr_err("CPUID: Unknown Zen3 processor model: 0x%X (CPUID: 0x%08X)", cpu_model, cpuid);
+                pr_err("CPUID: Unknown Zen3/4 processor model: 0x%X (CPUID: 0x%08X)", cpu_model, cpuid);
                 return -2;
         }
         return 0;
@@ -332,6 +338,8 @@ int smu_init(struct pci_dev* dev) {
         case CODENAME_MATISSE:
         case CODENAME_VERMEER:
         case CODENAME_MILAN:
+        case CODENAME_CHAGALL:
+        case CODENAME_RAPHAEL:
             g_smu.addr_rsmu_mb_cmd  = 0x3B10524;
             g_smu.addr_rsmu_mb_rsp  = 0x3B10570;
             g_smu.addr_rsmu_mb_args = 0x3B10A40;
@@ -375,6 +383,8 @@ LOG_RSMU:
         case CODENAME_MATISSE:
         case CODENAME_VERMEER:
         case CODENAME_MILAN:
+        case CODENAME_CHAGALL:
+        case CODENAME_RAPHAEL:
             g_smu.addr_hsmp_mb_cmd = 0x3B10534;
             g_smu.addr_hsmp_mb_rsp = 0x3B10980;
             g_smu.addr_hsmp_mb_args = 0x3B109E0;
@@ -430,6 +440,8 @@ MP1_DETECT:
         case CODENAME_VERMEER:
         case CODENAME_CASTLEPEAK:
         case CODENAME_MILAN:
+        case CODENAME_CHAGALL:
+        case CODENAME_RAPHAEL:
             g_smu.mp1_if_ver        = IF_VERSION_11;
             g_smu.addr_mp1_mb_cmd   = 0x3B10530;
             g_smu.addr_mp1_mb_rsp   = 0x3B1057C;
@@ -519,7 +531,11 @@ u64 smu_get_dram_base_address(struct pci_dev* dev) {
         case CODENAME_MATISSE:
         case CODENAME_CASTLEPEAK:
         case CODENAME_MILAN:
+        case CODENAME_CHAGALL:
             fn[0] = 0x06;
+            goto BASE_ADDR_CLASS_1;
+        case CODENAME_RAPHAEL:
+            fn[0] = 0x04;
             goto BASE_ADDR_CLASS_1;
         case CODENAME_RENOIR:
         case CODENAME_LUCIENNE:
@@ -619,10 +635,15 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev* dev) {
         case CODENAME_NAPLES:
             fn = 0x0a;
             break;
+        case CODENAME_CASTLEPEAK:
         case CODENAME_MATISSE:
         case CODENAME_VERMEER:
         case CODENAME_MILAN:
+        case CODENAME_CHAGALL:
             fn = 0x05;
+            break;
+        case CODENAME_RAPHAEL:
+            fn = 0x03;
             break;
         case CODENAME_CEZANNE:
             fn = 0x65;
@@ -632,6 +653,8 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev* dev) {
             args.s.arg0 = 3;
             fn = 0x65;
             break;
+        case CODENAME_COLFAX:
+        case CODENAME_PINNACLERIDGE:
         case CODENAME_PICASSO:
         case CODENAME_RAVENRIDGE:
         case CODENAME_RAVENRIDGE2:
@@ -644,6 +667,48 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev* dev) {
 
     return smu_send_command(dev, fn, &args, MAILBOX_TYPE_RSMU);
 }
+
+enum smu_return_val smu_transfer_2nd_table_to_dram(struct pci_dev* dev) {
+    smu_req_args_t args;
+    u32 fn;
+
+    /**
+     * Probes (updates) the secondary PM Table.
+     * SMC Message corresponds to TransferTableSmu2Dram.
+     * Physically mapped at the DRAM Base address(es).
+     */
+
+    // Arg[0] here specifies the PM table when set to 0.
+    // For GPU ASICs, it seems there's more tables that can be found but for CPUs,
+    //  it seems this value is ignored.
+    smu_args_init(&args, 0);
+
+    switch (g_smu.codename) {
+        case CODENAME_COLFAX:
+        case CODENAME_PINNACLERIDGE:
+        case CODENAME_PICASSO:
+        case CODENAME_RAVENRIDGE:
+        case CODENAME_RAVENRIDGE2:
+            args.s.arg0 = 5;
+            fn = 0x3d;
+            break;
+        case CODENAME_SUMMITRIDGE:
+        case CODENAME_THREADRIPPER:
+        case CODENAME_NAPLES:
+        case CODENAME_CASTLEPEAK:
+        case CODENAME_MATISSE:
+        case CODENAME_VERMEER:
+        case CODENAME_MILAN:
+        case CODENAME_CEZANNE:
+        case CODENAME_RENOIR:
+        case CODENAME_LUCIENNE:
+        default:
+            return SMU_Return_Unsupported;
+    }
+
+    return smu_send_command(dev, fn, &args, MAILBOX_TYPE_RSMU);
+}
+
 
 enum smu_return_val smu_get_pm_table_version(struct pci_dev* dev, u32* version) {
     enum smu_return_val ret;
@@ -660,10 +725,15 @@ enum smu_return_val smu_get_pm_table_version(struct pci_dev* dev, u32* version) 
         case CODENAME_PICASSO:
             fn = 0x0c;
             break;
+        case CODENAME_CASTLEPEAK:
         case CODENAME_MATISSE:
         case CODENAME_VERMEER:
         case CODENAME_MILAN:
+        case CODENAME_CHAGALL:
             fn = 0x08;
+            break;
+        case CODENAME_RAPHAEL:
+            fn = 0x05;
             break;
         case CODENAME_RENOIR:
         case CODENAME_LUCIENNE:
@@ -686,6 +756,7 @@ u32 smu_update_pmtable_size(u32 version) {
     // These sizes are actually accurate and not just "guessed".
     // Source: Ryzen Master.
     switch (g_smu.codename) {
+        case CODENAME_CASTLEPEAK:
         case CODENAME_MATISSE:
             switch (version) {
                 case 0x240902:
@@ -706,6 +777,7 @@ u32 smu_update_pmtable_size(u32 version) {
             }
             break;
         case CODENAME_VERMEER:
+        case CODENAME_CHAGALL:
             switch (version) {
                 case 0x2D0903:
                     g_smu.pm_dram_map_size = 0x594;
@@ -713,7 +785,19 @@ u32 smu_update_pmtable_size(u32 version) {
                 case 0x380904:
                     g_smu.pm_dram_map_size = 0x5A4;
                     break;
-                case 0x380905:
+                case 0x380005: // 64
+                    g_smu.pm_dram_map_size = 0x1BB0;
+                    break;
+                case 0x380505: // 32
+                    g_smu.pm_dram_map_size = 0xF30;
+                    break;
+                case 0x380605: // 24
+                    g_smu.pm_dram_map_size = 0xC10;
+                    break;
+                case 0x380705: // 16
+                    g_smu.pm_dram_map_size = 0x8F0;
+                    break;
+                case 0x380905: // 8
                     g_smu.pm_dram_map_size = 0x5D0;
                     break;
                 case 0x2D0803:
@@ -783,6 +867,18 @@ u32 smu_update_pmtable_size(u32 version) {
             g_smu.pm_dram_base_alt = g_smu.pm_dram_base >> 32;
             g_smu.pm_dram_base &= 0xFFFFFFFF;
             break;
+        case CODENAME_RAPHAEL:
+            switch (version) {
+                case 0x540104:
+                    g_smu.pm_dram_map_size = 0x6A8;
+                    break;
+                case 0x000400:
+                    g_smu.pm_dram_map_size = 0x948;
+                    break;
+                default:
+                    goto UNKNOWN_PM_TABLE_VERSION;
+            }
+            break;
         default:
             return SMU_Return_Unsupported;
     }
@@ -815,6 +911,7 @@ enum smu_return_val smu_read_pm_table(struct pci_dev* dev, unsigned char* dst, s
             g_smu.codename == CODENAME_RENOIR   ||
             g_smu.codename == CODENAME_LUCIENNE ||
             g_smu.codename == CODENAME_CEZANNE  ||
+            g_smu.codename == CODENAME_CHAGALL  ||
             g_smu.codename == CODENAME_MILAN) {
             ret = smu_get_pm_table_version(dev, &version);
 
@@ -855,6 +952,12 @@ enum smu_return_val smu_read_pm_table(struct pci_dev* dev, unsigned char* dst, s
         ret = smu_transfer_table_to_dram(dev);
         if (ret != SMU_Return_OK)
             return ret;
+
+        if (g_smu.pm_dram_map_size_alt) {
+            ret = smu_transfer_2nd_table_to_dram(dev);
+            if (ret != SMU_Return_OK)
+                return ret;
+        }
     }
 
     // Primary PM Table size

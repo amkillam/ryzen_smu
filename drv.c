@@ -21,7 +21,7 @@
 
 MODULE_AUTHOR("Leonardo Gates <leogatesx9r@protonmail.com>");
 MODULE_DESCRIPTION("AMD Ryzen SMU Command Driver");
-MODULE_VERSION("0.1.4");
+MODULE_VERSION("0.1.5");
 MODULE_LICENSE("GPL");
 
 #define MSEC_TO_NSEC(x)                    (x * 1000000)

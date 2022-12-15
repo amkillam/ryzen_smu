@@ -83,6 +83,8 @@ enum smu_processor_codename {
     CODENAME_DALI,
     CODENAME_LUCIENNE,
     CODENAME_NAPLES,
+    CODENAME_CHAGALL,
+    CODENAME_RAPHAEL,
 
     CODENAME_COUNT
 };

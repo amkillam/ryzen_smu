@@ -21,6 +21,7 @@ The following processor code names are supported:
 - [Raven Ridge 2](https://www.techpowerup.com/gpu-specs/amd-raven-2.g888)
 - [Summit Ridge](https://en.wikichip.org/wiki/amd/cores/summit_ridge)
 - [Pinnacle Ridge](https://en.wikichip.org/wiki/amd/cores/pinnacle_ridge)
+- [Raphael](https://en.wikichip.org/wiki/amd/cores/raphael)
 - [Rembrandt](https://en.wikichip.org/wiki/amd/cores/rembrandt)
 - [Vermeer](https://en.wikichip.org/wiki/amd/cores/vermeer)
 - [Vangogh](https://en.wikichip.org/wiki/amd/cores/vangogh)
@@ -34,6 +35,7 @@ The following processor code names are supported:
 In addition, for the following models, the power metrics/monitoring (PM) table (seen in screenshot)
 can also be accessed:
 
+- Raphael ( Ryzen 7000 Desktop Series )
 - Vermeer ( Ryzen 5000 Desktop Series )
 - Matisse ( Ryzen 3000 Desktop Series )
 - Cezanne ( Ryzen 5000[GE] APU Series )
@@ -159,7 +161,7 @@ SMU v46.54.0
 4
 
 # cat /sys/kernel/ryzen_smu_drv/drv_version
-0.1.4
+0.1.5
 
 ```
 
