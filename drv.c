@@ -328,7 +328,7 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
 
     g_driver.device = dev;
 
-    pr_info("ryzen_smu: %s", THIS_MODULE->version);
+    pr_info("loading version: %s", THIS_MODULE->version);
 
     // Clamp values.
     if (smu_timeout_attempts > SMU_RETRIES_MAX)
