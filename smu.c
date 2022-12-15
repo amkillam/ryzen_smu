@@ -908,6 +908,7 @@ enum smu_return_val smu_read_pm_table(struct pci_dev* dev, unsigned char* dst, s
         // These models require finding the PM table version to determine its size.
         if (g_smu.codename == CODENAME_VERMEER  ||
             g_smu.codename == CODENAME_MATISSE  ||
+            g_smu.codename == CODENAME_RAPHAEL  ||
             g_smu.codename == CODENAME_RENOIR   ||
             g_smu.codename == CODENAME_LUCIENNE ||
             g_smu.codename == CODENAME_CEZANNE  ||
