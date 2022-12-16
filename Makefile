@@ -1,6 +1,7 @@
-VERSION					:= 0.1.5
-TARGET					:= $(shell uname -r)
-DKMS_ROOT_PATH			:= /usr/src/ryzen_smu-$(VERSION)
+MOD 				:= ryzen_smu
+VERSION				:= 0.1.5
+TARGET				:= $(shell uname -r)
+DKMS_ROOT_PATH			:= /usr/src/$(MOD)-$(VERSION)
 
 KERNEL_MODULES			:= /lib/modules/$(TARGET)
 
@@ -14,10 +15,10 @@ else
 endif
 endif
 
-obj-m					:= ryzen_smu.o
-ryzen_smu-objs		 	:= drv.o smu.o
+obj-m				:= $(MOD).o
+$(MOD)-objs		 	:= drv.o smu.o
 
-.PHONY: all modules clean dkms-install dkms-uninstall
+.PHONY: all modules clean dkms-install dkms-uninstall insmod checkmod
 
 all: modules
 
@@ -49,3 +50,13 @@ dkms-install:
 dkms-uninstall:
 	dkms remove ryzen_smu/$(VERSION) --all
 	rm -rf $(DKMS_ROOT_PATH)
+
+insmod:
+	sudo rmmod $(MOD).ko; true
+	sudo insmod $(MOD).ko
+
+checkmod:
+	lsmod | grep $(MOD)
+	cat /proc/modules | grep $(MOD)
+	cat /sys/kernel/$(MOD)_drv/drv_version
+	modinfo $(MOD)
