@@ -470,9 +470,39 @@ MP1_DETECT:
     pr_debug("MP1 Mailbox: (cmd: 0x%X, rsp: 0x%X, args: 0x%X)",
         g_smu.addr_mp1_mb_cmd, g_smu.addr_mp1_mb_rsp, g_smu.addr_mp1_mb_args);
 
+    pr_info("Family Codename: %s",
+        getCodeName(g_smu.codename));
+
     return 0;
 }
 
+const char* getCodeName(enum smu_processor_codename codename) 
+{
+   switch (codename) 
+   {
+      case CODENAME_COLFAX: return "Colfax";
+      case CODENAME_RENOIR: return "Renoir";
+      case CODENAME_PICASSO: return "Picasso";
+      case CODENAME_MATISSE: return "Matisse";
+      case CODENAME_THREADRIPPER: return "ThreadRipper";
+      case CODENAME_CASTLEPEAK: return "CastelPeak";
+      case CODENAME_RAVENRIDGE: return "RavenRidge";
+      case CODENAME_RAVENRIDGE2: return "RavenRidge2";
+      case CODENAME_SUMMITRIDGE: return "SummitRidge";
+      case CODENAME_PINNACLERIDGE: return "PinnacleRidge";
+      case CODENAME_REMBRANDT: return "Rembrandt";
+      case CODENAME_VERMEER: return "Vermeer";
+      case CODENAME_VANGOGH: return "VanGogh";
+      case CODENAME_CEZANNE: return "Cezanne";
+      case CODENAME_MILAN: return "Milan";
+      case CODENAME_DALI: return "Dali";
+      case CODENAME_LUCIENNE: return "Lucienne";
+      case CODENAME_NAPLES: return "Naples";
+      case CODENAME_CHAGALL: return "Chagall";
+      case CODENAME_RAPHAEL: return "Raphael";
+      default: return "Undefined";
+   }
+}
 void smu_cleanup(void) {
     // Unmap DRAM Base if required after SMU use.
     if (g_smu.pm_table_virt_addr) {

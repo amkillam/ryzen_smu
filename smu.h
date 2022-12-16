@@ -149,6 +149,11 @@ void smu_cleanup(void);
 enum smu_processor_codename smu_get_codename(void);
 
 /**
+ * Returns the running processor's detected code name as a fridnly string.
+ */
+const char* getCodeName(enum smu_processor_codename codename);
+
+/**
  * Reads or writes 32 bit words to the SMU on the root NB PCI device.
  *
  * Returns an smu_return_val indicating the status of the operation.
