@@ -730,7 +730,7 @@ u32 smu_update_pmtable_size(u32 version) {
                     g_smu.pm_dram_map_size = 0x8AC;
                     break;
                 case 0x370005:
-                    g_smu.pm_dram_map_size = 0x8C8;
+                    g_smu.pm_dram_map_size = 0x8F0;
                     break;
                 default:
                     goto UNKNOWN_PM_TABLE_VERSION;
