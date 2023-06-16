@@ -48,6 +48,7 @@ permissions (for obvious reasons) at the root path `/sys/kernel/ryzen_smu_drv`:
 - `codename`
 - `smu_args`
 - `mp1_smu_cmd`
+- `hsmp_smu_cmd`
 - `smn`
 - `rsmu_cmd` (Not present on `Rembrandt`, `Vangogh`)
 
@@ -134,6 +135,7 @@ drwxr-xr-x  2 root root    0 May  7 03:01 ./
 drwxr-xr-x 14 root root    0 May  7 03:01 ../
 -r--------  1 root root 4.0K May  7 03:12 codename
 -r--------  1 root root 4.0K May  7 03:12 drv_version
+-rw-------  1 root root 4.0K May  7 03:10 hsmp_smu_cmd
 -r--------  1 root root 4.0K May  7 03:10 mp1_if_version
 -rw-------  1 root root 4.0K May  7 03:10 mp1_smu_cmd
 -r--------  1 root root 4.0K May  7 03:12 pm_table
@@ -234,7 +236,7 @@ enumeration:
 
 Note: This file returns 2 characters of the 'Decimal' encoded index.
 
-#### `/sys/kernel/ryzen_smu_drv/rsmu_cmd` or `/sys/kernel/ryzen_smu_drv/mp1_smu_cmd`
+#### `/sys/kernel/ryzen_smu_drv/rsmu_cmd` or `/sys/kernel/ryzen_smu_drv/mp1_smu_cmd` or `/sys/kernel/ryzen_smu_drv/hsmp_smu_cmd`
 
 This file allows the user to initiate an RSMU or MP1 SMU request. It accepts either an 8-bit or
 32-bit command ID that is platform-dependent.

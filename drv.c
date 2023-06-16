@@ -21,7 +21,7 @@
 
 MODULE_AUTHOR("Leonardo Gates <leogatesx9r@protonmail.com>");
 MODULE_DESCRIPTION("AMD Ryzen SMU Command Driver");
-MODULE_VERSION("0.1.2");
+MODULE_VERSION("0.1.3");
 MODULE_LICENSE("GPL");
 
 #define MSEC_TO_NSEC(x)                    (x * 1000000)
@@ -31,7 +31,7 @@ MODULE_LICENSE("GPL");
 #define PCI_DEVICE_ID_AMD_17H_M60H_ROOT    0x1630
 #define PCI_DEVICE_ID_AMD_17H_M30H_ROOT    0x1480
 
-#define MAX_ATTRS_LEN                      12
+#define MAX_ATTRS_LEN                      13
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
     #error "Unsupported kernel version. Minimum: v4.19"
@@ -173,6 +173,33 @@ static ssize_t mp1_smu_cmd_store(struct kobject *kobj, struct kobj_attribute *at
     return count;
 }
 
+static ssize_t hsmp_smu_cmd_show(struct kobject* kobj, struct kobj_attribute* attr, char* buff) {
+    ssize_t sz = sizeof(g_driver.smu_rsp);
+
+    memcpy(buff, &g_driver.smu_rsp, sz);
+    return sz;
+}
+
+static ssize_t hsmp_smu_cmd_store(struct kobject* kobj, struct kobj_attribute* attr, const char* buff, size_t count) {
+    u32 op;
+
+    // To date, there has never been a command that actually exceeds FFh
+    //  so 32 bits is overkill but still support it.
+    switch (count) {
+        case sizeof(u32) :
+            op = *(u32*)buff;
+            break;
+            case sizeof(u8) :
+                op = *(u8*)buff;
+                break;
+            default:
+                return 0;
+    }
+
+    g_driver.smu_rsp = smu_send_command(g_driver.device, op, &g_driver.smu_args, MAILBOX_TYPE_HSMP);
+    return count;
+}
+
 static ssize_t smu_args_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
     ssize_t sz = sizeof(g_driver.smu_args);
 
@@ -237,6 +264,7 @@ __RO_ATTR (pm_table_version);
 
 __RW_ATTR (rsmu_cmd);
 __RW_ATTR (mp1_smu_cmd);
+__RW_ATTR (hsmp_smu_cmd);
 __RW_ATTR (smu_args);
 
 __RW_ATTR (smn);
@@ -249,6 +277,7 @@ static struct attribute *drv_attrs[MAX_ATTRS_LEN] = {
 
     &dev_attr_smu_args.attr,
     &dev_attr_mp1_smu_cmd.attr,
+    &dev_attr_hsmp_smu_cmd.attr,
 
     &dev_attr_smn.attr,
 

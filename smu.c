@@ -24,6 +24,10 @@ static struct {
     u32                            addr_mp1_mb_rsp;
     u32                            addr_mp1_mb_args;
 
+    u32                            addr_hsmp_mb_cmd;
+    u32                            addr_hsmp_mb_rsp;
+    u32                            addr_hsmp_mb_args;
+
     // Optional PM table information.
     u64                            pm_dram_base;
     u32                            pm_dram_base_alt;
@@ -48,6 +52,10 @@ static struct {
     .addr_mp1_mb_cmd             = 0,
     .addr_mp1_mb_rsp             = 0,
     .addr_mp1_mb_args            = 0,
+
+    .addr_hsmp_mb_cmd = 0,
+    .addr_hsmp_mb_rsp = 0,
+    .addr_hsmp_mb_args = 0,
 
     .pm_dram_base                = 0,
     .pm_dram_base_alt            = 0,
@@ -120,6 +128,11 @@ enum smu_return_val smu_send_command(struct pci_dev* dev, u32 op, smu_req_args_t
             rsp_addr = g_smu.addr_mp1_mb_rsp;
             cmd_addr = g_smu.addr_mp1_mb_cmd;
             args_addr = g_smu.addr_mp1_mb_args;
+            break;
+        case MAILBOX_TYPE_HSMP:
+            rsp_addr = g_smu.addr_hsmp_mb_rsp;
+            cmd_addr = g_smu.addr_hsmp_mb_cmd;
+            args_addr = g_smu.addr_hsmp_mb_args;
             break;
         default:
             return SMU_Return_Unsupported;
@@ -348,6 +361,39 @@ int smu_init(struct pci_dev* dev) {
 LOG_RSMU:
     pr_debug("RSMU Mailbox: (cmd: 0x%X, rsp: 0x%X, args: 0x%X)",
         g_smu.addr_rsmu_mb_cmd, g_smu.addr_rsmu_mb_rsp, g_smu.addr_rsmu_mb_args);
+
+    // Detect HSMP mailbox address.
+    switch (g_smu.codename) {
+        case CODENAME_CASTLEPEAK:
+        case CODENAME_MATISSE:
+        case CODENAME_VERMEER:
+        case CODENAME_MILAN:
+            g_smu.addr_hsmp_mb_cmd = 0x3B10534;
+            g_smu.addr_hsmp_mb_rsp = 0x3B10980;
+            g_smu.addr_hsmp_mb_args = 0x3B109E0;
+            goto LOG_HSMP;
+        case CODENAME_COLFAX:
+        case CODENAME_SUMMITRIDGE:
+        case CODENAME_THREADRIPPER:
+        case CODENAME_PINNACLERIDGE:
+        case CODENAME_RENOIR:
+        case CODENAME_PICASSO:
+        case CODENAME_CEZANNE:
+        case CODENAME_RAVENRIDGE:
+        case CODENAME_RAVENRIDGE2:
+        case CODENAME_DALI:
+        case CODENAME_VANGOGH:
+        case CODENAME_REMBRANDT:
+            goto MP1_DETECT;
+        default:
+            pr_err("Unknown processor codename: %d", g_smu.codename);
+            return -ENODEV;
+    }
+
+LOG_HSMP:
+    pr_debug("HSMP Mailbox: (cmd: 0x%X, rsp: 0x%X, args: 0x%X)",
+        g_smu.addr_hsmp_mb_cmd, g_smu.addr_hsmp_mb_rsp, g_smu.addr_hsmp_mb_args);
+
 
 MP1_DETECT:
     // Detect MP1 SMU mailbox address.
