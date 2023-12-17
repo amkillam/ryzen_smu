@@ -464,6 +464,8 @@ const char* smu_codename_to_str(smu_obj_t* obj) {
             return "Lucienne";
         case CODENAME_NAPLES:
             return "Naples";
+        case CODENAME_PHOENIX:
+            return "Phoenix";
         default:
             return "Undefined";
     }

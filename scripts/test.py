@@ -179,7 +179,12 @@ def test_get_codename():
         "Vangogh",
         "Cezanne",
         "Milan",
-        "Dali"
+        "Dali",
+        "Lucienne",
+        "Naples",
+        "Chagall",
+        "Raphael",
+        "Phoenix"
     ]
     args = read_file_str(CN_PATH, 3)
 
