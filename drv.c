@@ -49,11 +49,11 @@ MODULE_LICENSE("GPL");
 
 #define __RO_ATTR(attr) \
     static struct kobj_attribute dev_attr_##attr = \
-        __ATTR(attr, S_IRUSR, attr##_show, attr_store_null);
+        __ATTR(attr, S_IRUSR | S_IRGRP | S_IROTH, attr##_show, attr_store_null);
 
 #define __RW_ATTR(attr) \
     static struct kobj_attribute dev_attr_##attr = \
-        __ATTR(attr, S_IRUSR | S_IWUSR, attr##_show, attr##_store);
+        __ATTR(attr, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, attr##_show, attr##_store);
 
 static struct ryzen_smu_data {
     struct pci_dev*         device;
