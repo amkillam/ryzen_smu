@@ -450,6 +450,8 @@ const char* smu_codename_to_str(smu_obj_t* obj) {
             return "Thread Ripper";
         case CODENAME_REMBRANDT:
             return "Rembrandt";
+        case CODENAME_RAPHAEL:
+            return "Raphael";
         case CODENAME_VERMEER:
             return "Vermeer";
         case CODENAME_VANGOGH:
