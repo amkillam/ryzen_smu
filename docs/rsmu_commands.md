@@ -161,20 +161,18 @@ int main() {
 
 ```
 
-### SetOverclockCPUVID Argument Format
+### Argument Format
 
-SetOverclockCPUVID takes a specified VID as argument, with particular formatting.
+Unless a different formatting or mask is specified otherwise, function arguments must be formatted as follows:
 
-The formatting process is as follows:
-
-1. Convert VID to hex
+1. Convert argument to hex
 2. Pad hex value to a length of 48 bits
 3. Split padded value to two-bit chunks
-4. Reverse order of chunks - hex VID will be first chunk.
+4. Reverse order of chunks - hex argument value will be first chunk.
 
 #### Bash Example
 
-The following bash code, with an inputted VID of 150<sub>10</sub> (96<sub>16</sub>), will give `FORMATTED_VID` a binary value with a two-byte hexadecimal formatted hexdump representation of:
+The following bash code, with an inputted VID of 150<sub>10</sub> (96<sub>16</sub>), will give `FORMATTED_ARG` a binary value with a two-byte hexadecimal formatted hexdump representation of:
 
 ```hex
 0000000    0096    0000    0000    0000    0000    0000    0000    0000
@@ -183,19 +181,19 @@ The following bash code, with an inputted VID of 150<sub>10</sub> (96<sub>16</su
 ```
 
 ```bash
-VID=150
-FORMATTED_VID=$(printf '%0*x' 48 $VID | fold -w 2 | tac | tr -d '\n' | xxd -r -p)
+ARG=150
+FORMATTED_ARG=$(printf '%0*x' 48 $ARG | fold -w 2 | tac | tr -d '\n' | xxd -r -p)
 ```
 
 ##### Steps
 
-The following outlines the operation performed at each step of `FORMATTED_VID`'s computation:
+The following outlines the operation performed at each step of `FORMATTED_ARG`'s computation:
 
-1. `printf '%0*x' 48 $VID`: converts VID to hex and pads to length of 48 bits.
+1. `printf '%0*x' 48 $ARG`: converts ARG to hex and pads to length of 48 bits.
 2. `fold -w 2`: splits to two-bit chunks, one chunk on each line
 3. `tac`: Reverses order of lines (chunks)
 4. `tr -d '\n'`: Removes new lines - moves all bits to one line.
-5. `xxd -r -p`: parses hex-formatted string representation of VID bytes, converts to raw binary value.
+5. `xxd -r -p`: parses hex-formatted string representation of ARG bytes, converts to raw binary value.
 
 ### Configuring Load Core Voltage
 
