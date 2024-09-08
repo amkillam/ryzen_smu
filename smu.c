@@ -321,6 +321,17 @@ int smu_resolve_cpu_class(struct pci_dev* dev) {
         }
         return 0;
     }
+    else if (cpu_family == 0x1a) {
+        switch (cpu_model) {
+            case 0x24:
+                g_smu.codename = CODENAME_STRIX;
+                break;
+            default:
+                pr_err("CPUID: Unknown Zen5/6 processor model: 0x%X (CPUID: 0x%08X)", cpu_model, cpuid);
+                return -2;
+        }
+        return 0;
+    }
 
     else {
         pr_err("CPUID: failed to detect Zen/Zen+/Zen2/Zen3/Zen4 processor family (%Xh).", cpu_family);
@@ -366,6 +377,7 @@ int smu_init(struct pci_dev* dev) {
         case CODENAME_DALI:
         case CODENAME_REMBRANDT:
         case CODENAME_PHOENIX:
+        case CODENAME_STRIX:
             g_smu.addr_rsmu_mb_cmd  = 0x3B10A20;
             g_smu.addr_rsmu_mb_rsp  = 0x3B10A80;
             g_smu.addr_rsmu_mb_args = 0x3B10A88;
@@ -409,6 +421,7 @@ LOG_RSMU:
         case CODENAME_VANGOGH:
         case CODENAME_REMBRANDT:
         case CODENAME_PHOENIX:
+        case CODENAME_STRIX:
             goto MP1_DETECT;
         default:
             pr_err("Unknown processor codename: %d", g_smu.codename);
@@ -469,6 +482,12 @@ MP1_DETECT:
             g_smu.addr_mp1_mb_rsp   = 0x3B10578;
             g_smu.addr_mp1_mb_args  = 0x3B10998;
             break;
+        case CODENAME_STRIX:
+            g_smu.mp1_if_ver       = IF_VERSION_13;
+            g_smu.addr_mp1_mb_cmd   = 0x3b10928;
+            g_smu.addr_mp1_mb_rsp   = 0x3b10978;
+            g_smu.addr_mp1_mb_args  = 0x3b10998;
+            break;
         default:
             pr_err("Unknown processor codename: %d", g_smu.codename);
             return -ENODEV;
@@ -508,6 +527,7 @@ const char* getCodeName(enum smu_processor_codename codename)
       case CODENAME_CHAGALL: return "Chagall";
       case CODENAME_RAPHAEL: return "Raphael";
       case CODENAME_PHOENIX: return "Phoenix";
+      case CODENAME_STRIX: return "Strix";
       default: return "Undefined";
    }
 }
@@ -580,6 +600,7 @@ u64 smu_get_dram_base_address(struct pci_dev* dev) {
         case CODENAME_CEZANNE:
         case CODENAME_REMBRANDT:
         case CODENAME_PHOENIX:
+        case CODENAME_STRIX:
             fn[0] = 0x66;
             goto BASE_ADDR_CLASS_1;
         case CODENAME_COLFAX:
@@ -692,6 +713,7 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev* dev) {
         case CODENAME_LUCIENNE:
         case CODENAME_REMBRANDT:
         case CODENAME_PHOENIX:
+        case CODENAME_STRIX:
             args.s.arg0 = 3;
             fn = 0x65;
             break;
@@ -782,6 +804,7 @@ enum smu_return_val smu_get_pm_table_version(struct pci_dev* dev, u32* version) 
         case CODENAME_CEZANNE:
         case CODENAME_REMBRANDT:
         case CODENAME_PHOENIX:
+        case CODENAME_STRIX:
             fn = 0x06;
             break;
         default:
@@ -944,7 +967,9 @@ u32 smu_update_pmtable_size(u32 version) {
                     goto UNKNOWN_PM_TABLE_VERSION;
             }
             break;
-
+        case CODENAME_STRIX:
+            g_smu.pm_dram_map_size = 0xAA0;
+            break;
         default:
             return SMU_Return_Unsupported;
     }
@@ -979,6 +1004,7 @@ enum smu_return_val smu_read_pm_table(struct pci_dev* dev, unsigned char* dst, s
             g_smu.codename == CODENAME_LUCIENNE ||
             g_smu.codename == CODENAME_REMBRANDT  ||
             g_smu.codename == CODENAME_PHOENIX  ||
+            g_smu.codename == CODENAME_STRIX  ||
             g_smu.codename == CODENAME_CEZANNE  ||
             g_smu.codename == CODENAME_CHAGALL  ||
             g_smu.codename == CODENAME_MILAN) {
