@@ -80,7 +80,7 @@ All below indices and count values are zero-indexed.
 - let `core_complex` be the index of the CCX within its containing CCD.
 - let `ccd_id` be the index of the CCD within its CPU.
 - let `MAX_CORE_FREQ` be the maximum allowed of frequency for a core in the specified CPU.
-- let `CORE_COUNT_PER_CCX` be the number of cores in per CCX in the specified CPU.
+- let `CORE_COUNT_PER_CCX` be the number of cores per CCX in the specified CPU.
 - let `CCX_COUNT_PER_CCD` be the number of CCXs in a CCD in the specified CPU.
 - let `CCD_COUNT_PER_CPU` be the number of CCDs in the specified CPU.
 
@@ -102,7 +102,7 @@ unsigned int mask_core_freq(unsigned short int frequency, char core_id, char cor
 
 ##### Example Usage
 
-The following is an example usage of the mask_core_freq with an AMD Ryzen 7950x CPU.
+The following is an example usage of `mask_core_freq` with an AMD Ryzen 7950x CPU.
 
 Maximum core frequency is an AMD configured value, and in this example, is assumed to have the same value in Raphael as the known value of 8000MHz in Matisse and Vermeer.
 
@@ -202,10 +202,10 @@ The following outlines the operation performed at each step of `FORMATTED_ARG`'s
 The RSMU function SetOverclockCPUVID configures the _idle_ VID for all cores. VID will instaneously decrease/increase under load depending on your motherboard's configured V<sub>droop</sub>
 (often configured via the Load-Line Calibration setting in BIOS menus), instaneous average core frequency, and countless other factors.
 
-While V<sub>droop</sub> cannot be directly configured, but its effect proportional to any given instaneous average core frequency can be determined to an applicable degree of accuracy, and thus
+While V<sub>droop</sub> cannot be directly configured, its effect proportional to any given instaneous average core frequency can be determined to an applicable degree of accuracy, and thus
 accounted for via the following process.
 
-Proceed with caution, as a sufficiently large V<sub>droop</sub> can cause a dangerously high idle voltage, when applied VID is incremented to account for the large V<sub>droop</sub>.
+Proceed with caution, as a sufficiently large V<sub>droop</sub> can cause a dangerously high idle voltage when applied VID is incremented to account for a large V<sub>droop</sub>.
 
 Note: RSMU functions will be referred to by name, and calling the functions correctly is left as an exercise to the reader.
 
@@ -231,12 +231,10 @@ Note: RSMU functions will be referred to by name, and calling the functions corr
 
 Given results of the data collection, we can now calculate V<sub>droop</sub> for an instaneous average core frequency, and account for it in applied VID.
 
-The variables used in calculation are defined below:
-
-- Let `let step_six_avg` be the results of the data collection.
-- Let `let avg_core_freq` be the average of the applied frequencies to all cores.
-- Let `let intended_vid` be the intended VID to be used when CPU is under load.
-- Let `let incremented_vid` be the VID value used in the SetOverclockCPUVID function call argument, which accounts for V<sub>droop</sub> and ensures VID used under load is equal to intended_vid.
+- Let `step_six_avg` be the results of the data collection.
+- Let `avg_core_freq` be the average of the applied frequencies to all cores.
+- Let `intended_vid` be the intended VID to be used when CPU is under load.
+- Let `incremented_vid` be the VID value used in the SetOverclockCPUVID function call argument, which accounts for V<sub>droop</sub> and ensures VID used under load is equal to intended_vid.
 
 `incremented_vid` is then finally calculated as follows:
 `incremented_vid = intended_vid + (avg_core_freq/step_six_avg)`
@@ -269,7 +267,7 @@ Notes:
 - Discrepancies between step 6 results are assumed to be the result of rounding float values to integers. The average of these values allows calculation of a reasonable approximation of
   real V<sub>droop</sub>, though the formula used internally is currently unknown.
 - Referring to Raphael voltage calculation formula shown below, featuring a constant multiplier of `0.00625`, the following formula, anecdotally, also correctly calculated V<sub>droop</sub>,
-  though the relation and domain of applicability is currently uncertain - `incremented_vid = 0.25 * 0.00625 * intended_vid`.
+  though the formulaic relation of its terms and domain of its applicability are presently uncertain - `incremented_vid = 0.25 * 0.00625 * intended_vid`.
 
 ### Raphael
 
