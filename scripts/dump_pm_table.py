@@ -74,7 +74,9 @@ def getCodeName():
         "Vangogh",
         "Cezanne",
         "Milan",
-        "Dali"
+        "Dali",
+        "Hawk Point"
+
     ]
     args = read_file_str(CN_PATH, 2)
 

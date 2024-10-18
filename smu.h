@@ -85,6 +85,7 @@ enum smu_processor_codename {
     CODENAME_NAPLES,
     CODENAME_CHAGALL,
     CODENAME_RAPHAEL,
+    CODENAME_HAWKPOINT,
 
     CODENAME_COUNT
 };
