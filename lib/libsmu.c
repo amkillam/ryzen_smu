@@ -452,6 +452,8 @@ const char* smu_codename_to_str(smu_obj_t* obj) {
             return "Rembrandt";
         case CODENAME_RAPHAEL:
             return "Raphael";
+        case CODENAME_GRANITERIDGE:
+            return "GraniteRidge";
         case CODENAME_VERMEER:
             return "Vermeer";
         case CODENAME_VANGOGH:
