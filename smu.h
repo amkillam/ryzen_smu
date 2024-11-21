@@ -88,7 +88,7 @@ enum smu_processor_codename {
     CODENAME_PHOENIX,
     CODENAME_STRIX,
     CODENAME_GRANITERIDGE,
-
+    CODENAME_HAWKPOINT,
     CODENAME_COUNT
 };
 
