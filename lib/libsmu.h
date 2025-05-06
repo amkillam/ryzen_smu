@@ -30,9 +30,9 @@
  * SMU Mailbox Target
  */
 enum smu_mailbox {
-    TYPE_RSMU,
-    TYPE_MP1,
-    TYPE_HSMP,
+    SMU_TYPE_RSMU,
+    SMU_TYPE_MP1,
+    SMU_TYPE_HSMP,
 };
 
 /**
@@ -196,7 +196,7 @@ smu_return_val smu_write_smn_addr(smu_obj_t* obj, unsigned int address, unsigned
 /**
  * Sends a command to the SMU.
  * Arguments are sent in the args buffer and are also returned in it.
- * 
+ *
  * Returns SMU_Return_OK on success.
  */
 smu_return_val smu_send_command(smu_obj_t* obj, unsigned int op, smu_arg_t *args,
@@ -204,7 +204,7 @@ smu_return_val smu_send_command(smu_obj_t* obj, unsigned int op, smu_arg_t *args
 
 /**
  * Reads the PM table into the destination buffer.
- * 
+ *
  * Returns an SMU_Return_OK on success.
  */
 smu_return_val smu_read_pm_table(smu_obj_t* obj, unsigned char* dst, size_t dst_len);
