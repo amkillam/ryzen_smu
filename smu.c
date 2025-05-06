@@ -329,6 +329,7 @@ int smu_resolve_cpu_class(struct pci_dev *dev) {
       break;
     case 0x74:
       g_smu.codename = CODENAME_PHOENIX;
+      break;
     case 0x75:
       g_smu.codename = CODENAME_HAWKPOINT;
       break;
