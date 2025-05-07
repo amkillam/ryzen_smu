@@ -1023,6 +1023,7 @@ u32 smu_update_pmtable_size(u32 version) {
     case 0x4C0006:
     case 0x4C0007:
     case 0x4C0008:
+    case 0x4C0009:
       g_smu.pm_dram_map_size = 0xAA0;
       break;
     default:
