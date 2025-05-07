@@ -149,7 +149,7 @@ static smu_return_val smu_init_parse(smu_obj_t* obj) {
     // This file doesn't need to exist if PM Tables aren't supported.
     if (!try_open_path(PM_VERSION_PATH, O_RDONLY, &tmp_fd))
         return SMU_Return_OK;
-    
+
     ret = read(tmp_fd, &obj->pm_table_version, sizeof(obj->pm_table_version));
     close(tmp_fd);
 
@@ -159,7 +159,7 @@ static smu_return_val smu_init_parse(smu_obj_t* obj) {
     // If the PM table contains a version, a size file MUST exist.
     if (!try_open_path(PM_SIZE_PATH, O_RDONLY, &tmp_fd))
         return SMU_Return_RWError;
-    
+
     ret = read(tmp_fd, &obj->pm_table_size, sizeof(obj->pm_table_size));
     close(tmp_fd);
 
@@ -307,13 +307,13 @@ smu_return_val smu_send_command(smu_obj_t* obj, unsigned int op, smu_arg_t* args
         return SMU_Return_Failed;
 
     switch (mailbox) {
-        case TYPE_RSMU:
+        case SMU_TYPE_RSMU:
             fd_smu_cmd = obj->fd_rsmu_cmd;
             break;
-        case TYPE_MP1:
+        case SMU_TYPE_MP1:
             fd_smu_cmd = obj->fd_mp1_smu_cmd;
             break;
-        case TYPE_HSMP:
+        case SMU_TYPE_HSMP:
             fd_smu_cmd = obj->fd_hsmp_smu_cmd;
             break;
         default:
