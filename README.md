@@ -162,7 +162,7 @@ SMU v46.54.0
 4
 
 # cat /sys/kernel/ryzen_smu_drv/drv_version
-0.1.5
+0.1.6
 
 ```
 
