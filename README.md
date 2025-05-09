@@ -31,6 +31,7 @@ The following processor code names are supported:
 - [Chagall](https://en.wikichip.org/wiki/amd/cores/chagall)
 - [Naples](https://en.wikichip.org/wiki/amd/cores/naples)
 - [Lucienne](https://en.wikichip.org/wiki/amd/cores/lucienne)
+- [Phoenix](https://en.wikichip.org/wiki/amd/cores/phoenix)
 
 In addition, for the following models, the power metrics/monitoring (PM) table (seen in screenshot)
 can also be accessed:
@@ -161,7 +162,7 @@ SMU v46.54.0
 4
 
 # cat /sys/kernel/ryzen_smu_drv/drv_version
-0.1.5
+0.1.6
 
 ```
 
@@ -238,6 +239,7 @@ enumeration:
 | 0Eh | 14      | Cezanne        |
 | 0Fh | 15      | Milan          |
 | 10h | 16      | Dali           |
+| 15h | 21      | Phoenix        |
 
 Note: This file returns 2 characters of the 'Decimal' encoded index.
 

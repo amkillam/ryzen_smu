@@ -24,7 +24,7 @@
 #include <pthread.h>
 
 /* Version the loaded driver must use to be compatible. */
-#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.5"
+#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.6"
 
 /**
  * SMU Mailbox Target

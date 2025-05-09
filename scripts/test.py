@@ -191,7 +191,8 @@ def test_get_codename():
         "Naples",
         "Chagall",
         "Raphael",
-        "Phoenix" "Hawk Point",
+        "Phoenix",
+        "Hawk Point",
     ]
     args = read_file_str(CN_PATH, 3)
 
