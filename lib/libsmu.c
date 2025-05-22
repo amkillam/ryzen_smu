@@ -470,8 +470,12 @@ const char* smu_codename_to_str(smu_obj_t* obj) {
             return "Naples";
         case CODENAME_PHOENIX:
             return "Phoenix";
+        case CODENAME_STRIXPOINT:
+            return "Strix Point";
         case CODENAME_HAWKPOINT:
             return "Hawk Point";
+        case CODENAME_STORMPEAK:
+            return "Storm Peak";
         default:
             return "Undefined";
     }

@@ -1,6 +1,7 @@
 .vscode/
 scripts/__pycache__/
 scripts/pm_dumps/
+userspace/monitor_cpu
 *.o
 *.ko
 *.cmd

@@ -32,12 +32,23 @@ The following processor code names are supported:
 - [Naples](https://en.wikichip.org/wiki/amd/cores/naples)
 - [Lucienne](https://en.wikichip.org/wiki/amd/cores/lucienne)
 - [Phoenix](https://en.wikichip.org/wiki/amd/cores/phoenix)
+- [Strix Point](https://en.wikichip.org/wiki/amd/cores/strix_point)
+- [Granite Ridge](https://en.wikichip.org/wiki/amd/cores/granite_ridge)
+- [Hawk Point](https://en.wikichip.org/wiki/amd/cores/hawk_point)
+- [Storm Peak](https://en.wikichip.org/wiki/amd/cores/storm_peak)
 
 In addition, for the following models, the power metrics/monitoring (PM) table (seen in screenshot)
 can also be accessed:
 
+- Granite Ridge ( Ryzen 9000 Desktop Series )
+- Strix Point ( Ryzen AI 300 )
+- Hawk Point ( Ryzen 8000 Mobile Series )
+- Phoenix ( Ryzen 8000 APU Series )
+- Storm Peak ( ThreadRipper 7000 Workstation Series )
 - Raphael ( Ryzen 7000 Desktop Series )
+- Chagall ( ThreadRipper 5000 Workstation Series )
 - Vermeer ( Ryzen 5000 Desktop Series )
+- Castle Peak ( ThreadRipper 3000 Workstation Series )
 - Matisse ( Ryzen 3000 Desktop Series )
 - Cezanne ( Ryzen 5000[GE] APU Series )
 - Renoir ( Ryzen 4000[UGHS] APU Series )
@@ -56,7 +67,7 @@ permissions (for obvious reasons) at the root path `/sys/kernel/ryzen_smu_drv`:
 - `mp1_smu_cmd`
 - `hsmp_smu_cmd`
 - `smn`
-- `rsmu_cmd` (Not present on `Rembrandt`, `Vangogh`)
+- `rsmu_cmd` (Not present on `Vangogh`)
 
 For supported PM table models where RSMU is also supported, the following files are additionally
 exposed:
@@ -162,7 +173,7 @@ SMU v46.54.0
 4
 
 # cat /sys/kernel/ryzen_smu_drv/drv_version
-0.1.6
+0.1.7
 
 ```
 
@@ -239,7 +250,15 @@ enumeration:
 | 0Eh | 14      | Cezanne        |
 | 0Fh | 15      | Milan          |
 | 10h | 16      | Dali           |
+| 11h | 17      | Luciene        |
+| 12h | 18      | Naples         |
+| 13h | 19      | Chagall        |
+| 14h | 20      | Raphael        |
 | 15h | 21      | Phoenix        |
+| 16h | 22      | Strix Point    |
+| 17h | 23      | Granite Ridge  |
+| 18h | 24      | Hawk Point     |
+| 19h | 25      | Storm Peak     |
 
 Note: This file returns 2 characters of the 'Decimal' encoded index.
 
@@ -313,36 +332,6 @@ Note: File is a 64 bit word encoded in little-endian binary order.
 On supported platforms, listed in the table below, this indicates the version of the metrics table.
 
 Each version corresponds to a specific table size and layout that differs across processors.
-
-The following table lists the known characteristics per version:
-
-| Hex      | Platform    | Table Size (Hex) |
-|:--------:|:-----------:|:----------------:|
-| 0x1E0004 | Raven Ridge | 0x6AC            |
-| 0x1E0005 | Raven Ridge | 0x6AC            |
-| 0x1E0101 | Raven Ridge | 0x6AC            |
-|          |             |                  |
-| 0x240802 | Matisse     | 0x7E0            |
-| 0x240803 | Matisse     | 0x7E4            |
-| 0x240902 | Matisse     | 0x514            |
-| 0x240903 | Matisse     | 0x518            |
-|          |             |                  |
-| 0x2D0803 | Vermeer     | 0x894            |
-| 0x380804 | Vermeer     | 0x8A4            |
-| 0x380805 | Vermeer     | 0x8F0            |
-| 0x2D0903 | Vermeer     | 0x594            |
-| 0x380904 | Vermeer     | 0x5A4            |
-| 0x380905 | Vermeer     | 0x5D0            |
-|          |             |                  |
-| 0x370000 | Renoir      | 0x794            |
-| 0x370001 | Renoir      | 0x884            |
-| 0x370002 | Renoir      | 0x88C            |
-| 0x370004 | Renoir      | 0x8AC            |
-| 0x370005 | Renoir      | 0x8C8            |
-|          |             |                  |
-| 0x400005 | Cezanne     | 0x944            |
-|          |             |                  |
-| 0x2D0008 | Milan       | 0x1AB0           |
 
 Note: File is a 32 bit word encoded in little-endian binary order.
 

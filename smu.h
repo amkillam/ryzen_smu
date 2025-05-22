@@ -86,9 +86,10 @@ enum smu_processor_codename {
     CODENAME_CHAGALL,
     CODENAME_RAPHAEL,
     CODENAME_PHOENIX,
-    CODENAME_STRIX,
+    CODENAME_STRIXPOINT,
     CODENAME_GRANITERIDGE,
     CODENAME_HAWKPOINT,
+    CODENAME_STORMPEAK,
     CODENAME_COUNT
 };
 
@@ -198,6 +199,7 @@ enum smu_if_version smu_get_mp1_if_version(void);
  * Returns an smu_return_val indicating the status of the operation.
  */
 enum smu_return_val smu_transfer_table_to_dram(struct pci_dev* dev);
+enum smu_return_val smu_transfer_2nd_table_to_dram(struct pci_dev *dev);
 
 /**
  * For Matisse and Renoir processors, returns a numeric value indicating the format
@@ -213,5 +215,10 @@ enum smu_return_val smu_get_pm_table_version(struct pci_dev* dev, u32* version);
  * Returns an smu_return_val indicating the status of the operation.
  */
 enum smu_return_val smu_read_pm_table(struct pci_dev* dev, unsigned char* dst, size_t* len);
+
+int smu_smn_rw_address(struct pci_dev *dev, u32 address, u32 *value, int write);
+int smu_resolve_cpu_class(struct pci_dev *dev);
+u64 smu_get_dram_base_address(struct pci_dev *dev);
+u32 smu_update_pmtable_size(u32 version);
 
 #endif /* __SMU_H__ */
