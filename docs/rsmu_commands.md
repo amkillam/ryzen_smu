@@ -33,27 +33,27 @@ The following commands work on all processors supporting MP1 or RSMU:
 
 <small>_Commands shown to be used in Ryzen Master._</small>
 
-|       **Function**        | **Command ID** | **Details**                      |
+|       **Function**        | **Command ID** | **Details**                      |                                 |
 | :-----------------------: | :------------: | -------------------------------- | ------------------------------- |
-|   TransferTableSmu2Dram   |      0x05      |                                  |
-|    GetDramBaseAddress     |      0x06      | Res0:PhyAddr                     |
-|     GetPMTableVersion     |      0x08      | Res0:Version                     |
-|        SetVDDCRSoC        |      0x14      | Arg0:VID                         |
-|        SetPPTLimit        |      0x53      | Arg0:mW                          |
-|        SetTDCLimit        |      0x54      | Arg0:mA                          |
-|        SetEDCLimit        |      0x55      | Arg0:mA                          |
-|       SetcHTCLimit        |      0x56      | Arg0:C                           |
-|       SetPBOScalar        |      0x58      | Arg0:(PBO Scalar \* 100)         |
+|   TransferTableSmu2Dram   |      0x05      |                                  |                                 |
+|    GetDramBaseAddress     |      0x06      | Res0:PhyAddr                     |                                 |
+|     GetPMTableVersion     |      0x08      | Res0:Version                     |                                 |
+|        SetVDDCRSoC        |      0x14      | Arg0:VID                         |                                 |
+|        SetPPTLimit        |      0x53      | Arg0:mW                          |                                 |
+|        SetTDCLimit        |      0x54      | Arg0:mA                          |                                 |
+|        SetEDCLimit        |      0x55      | Arg0:mA                          |                                 |
+|       SetcHTCLimit        |      0x56      | Arg0:C                           |                                 |
+|       SetPBOScalar        |      0x58      | Arg0:(PBO Scalar \* 100)         |                                 |
 |  GetFastestCoreOfSocket   |      0x59      | Res0:(16 \* BYTE2(Res0))         | (Res0 + 4 \* BYTE1(Res0)) & 0xF |
-|     SetPROCHOTStatus      |      0x5A      | Arg0:Status, Disabled(0x1000000) |
-|    EnableOverclocking     |      0x5A      | Arg0:Status, Enabled(0)          |
-|    DisableOverclocking    |      0x5B      | Arg0:Status, Disabled(0x1000000) |
-| SetOverclockFreqAllCores  |      0x5C      | Arg0:Frequency                   |
-|  SetOverclockFreqPerCore  |      0x5D      | Arg0:Value                       |
-|    SetOverclockCPUVID     |      0x61      | Arg0:VID                         |
-|       GetPBOScalar        |      0x6C      | Res0:PBO Scalar:(1-10)           |
-|      GetMaxFrequency      |      0x6E      | Res0:MHz                         |
-| GetProcessorParameters(?) |      0x6F      | Res0:BitField                    |
+|     SetPROCHOTStatus      |      0x5A      | Arg0:Status, Disabled(0x1000000) |                                 |
+|    EnableOverclocking     |      0x5A      | Arg0:Status, Enabled(0)          |                                 |
+|    DisableOverclocking    |      0x5B      | Arg0:Status, Disabled(0x1000000) |                                 |
+| SetOverclockFreqAllCores  |      0x5C      | Arg0:Frequency                   |                                 |
+|  SetOverclockFreqPerCore  |      0x5D      | Arg0:Value                       |                                 |
+|    SetOverclockCPUVID     |      0x61      | Arg0:VID                         |                                 |
+|       GetPBOScalar        |      0x6C      | Res0:PBO Scalar:(1-10)           |                                 |
+|      GetMaxFrequency      |      0x6E      | Res0:MHz                         |                                 |
+| GetProcessorParameters(?) |      0x6F      | Res0:BitField                    |                                 |
 
 ### GetProcessorParameters Bit Field
 
