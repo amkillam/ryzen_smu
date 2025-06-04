@@ -518,7 +518,7 @@ int smu_init(void) {
         return -ENODEV;
     }
 
-    pr_info("Family Codename: %s", getCodeName(g_smu.codename));
+    pr_info("Family Codename: %s", get_code_name(g_smu.codename));
     return 0;
 }
 
@@ -539,7 +539,7 @@ void smu_cleanup(void) {
 }
 
 const char *smu_get_codename(void) {
-    return getCodeName(g_smu.codename);
+    return get_code_name(g_smu.codename);
 }
 
 u32 smu_get_version(const struct pci_dev* dev, const smu_mailbox mb) {

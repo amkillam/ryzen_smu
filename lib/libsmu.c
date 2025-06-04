@@ -311,7 +311,6 @@ smu_return_val smu_send_command(smu_obj_t* obj, const unsigned int op, smu_arg_t
             return SMU_Return_Unsupported;
     }
 
-    // Check if fd is valid.
     if (!fd_smu_cmd)
         return SMU_Return_Unsupported;
 
@@ -418,7 +417,7 @@ const char* smu_return_to_str(const smu_return_val val) {
 }
 
 const char* smu_codename_to_str(const smu_obj_t* obj) {
-    return getCodeName(obj->codename);
+    return get_code_name(obj->codename);
 }
 
 unsigned int smu_pm_tables_supported(const smu_obj_t* obj) {

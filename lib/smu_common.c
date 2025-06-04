@@ -1,6 +1,6 @@
 #include "smu_common.h"
 
-const char* getCodeName(const smu_processor_codename codename) {
+const char* get_code_name(const smu_processor_codename codename) {
     switch (codename) {
         case CODENAME_COLFAX: return "Colfax";
         case CODENAME_RENOIR: return "Renoir";
@@ -27,6 +27,6 @@ const char* getCodeName(const smu_processor_codename codename) {
         case CODENAME_PHOENIX: return "Phoenix";
         case CODENAME_STRIXPOINT: return "StrixPoint";
         case CODENAME_HAWKPOINT: return "HawkPoint";
-        default: return "Undefined";
+        default: return "Unknown";
     }
 }

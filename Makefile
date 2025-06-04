@@ -1,5 +1,5 @@
 MOD 				:= ryzen_smu
-VERSION				:= 0.1.6
+VERSION				:= 0.1.8
 TARGET				:= $(shell uname -r)
 DKMS_ROOT_PATH			:= /usr/src/$(MOD)-$(VERSION)
 
@@ -16,7 +16,7 @@ endif
 endif
 
 obj-m				:= $(MOD).o
-$(MOD)-objs		 	:= drv.o smu.o smu_common.o
+$(MOD)-objs		 	:= drv.o smu.o lib/smu_common.o
 
 .PHONY: all modules clean dkms-install dkms-uninstall insmod checkmod
 

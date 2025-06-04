@@ -7,7 +7,7 @@
 #include <linux/pci.h>
 #include <linux/printk.h>
 
-#include "smu_common.h"
+#include "lib/smu_common.h"
 
 /* Redefine output format for nicer formatting. */
 #ifdef pr_fmt

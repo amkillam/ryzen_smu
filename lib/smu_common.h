@@ -93,4 +93,4 @@ typedef enum {
     MAILBOX_TYPE_COUNT
 } smu_mailbox;
 
-const char* getCodeName(smu_processor_codename codename);
+const char* get_code_name(smu_processor_codename codename);
