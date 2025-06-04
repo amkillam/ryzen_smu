@@ -16,7 +16,7 @@
 #include "smu.h"
 
 #ifndef KBUILD_MODNAME
-    #define KBUILD_MODNAME "ryzen_smu"
+#define KBUILD_MODNAME "ryzen_smu"
 #endif
 
 MODULE_AUTHOR("Leonardo Gates <leogatesx9r@protonmail.com>");
@@ -26,17 +26,16 @@ MODULE_LICENSE("GPL");
 
 #define MSEC_TO_NSEC(x)                    (x * 1000000)
 
-
-#define PCI_DEVICE_ID_AMD_17H_ROOT          0x1450
-#define PCI_DEVICE_ID_AMD_17H_M10H_ROOT     0x15d0
-#define PCI_DEVICE_ID_AMD_17H_M60H_ROOT     0x1630
-#define PCI_DEVICE_ID_AMD_17H_M30H_ROOT     0x1480
-
-// https://github.com/torvalds/linux/blob/master/arch/x86/kernel/amd_nb.c
 #define PCI_DEVICE_ID_AMD_1AH_M00H_ROOT     0x153a
 #define PCI_DEVICE_ID_AMD_1AH_M20H_ROOT     0x1507
+#define PCI_DEVICE_ID_AMD_1AH_M44H_ROOT     0x14d8
 #define PCI_DEVICE_ID_AMD_1AH_M60H_ROOT     0x1122
 #define PCI_DEVICE_ID_AMD_17H_MA0H_ROOT     0x14b5
+#define PCI_DEVICE_ID_AMD_17H_ROOT          0x1450
+#define PCI_DEVICE_ID_AMD_17H_M10H_ROOT     0x15d0
+#define PCI_DEVICE_ID_AMD_17H_M30H_ROOT     0x1480
+#define PCI_DEVICE_ID_AMD_17H_M60H_ROOT     0x1630
+#define PCI_DEVICE_ID_AMD_19H_M10H_DF_F4    0x14b1
 #define PCI_DEVICE_ID_AMD_19H_M10H_ROOT     0x14a4
 #define PCI_DEVICE_ID_AMD_19H_M40H_ROOT     0x14b5
 #define PCI_DEVICE_ID_AMD_19H_M60H_ROOT     0x14d8
@@ -47,7 +46,7 @@ MODULE_LICENSE("GPL");
 #define MAX_ATTRS_LEN                      13
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
-    #error "Unsupported kernel version. Minimum: v4.19"
+#error "Unsupported kernel version. Minimum: v4.19"
 #endif
 
 #define __RO_ATTR(attr) \
@@ -73,7 +72,6 @@ static struct ryzen_smu_data {
     size_t                  pm_table_read_size;
 } g_driver = {
     .device               = NULL,
-
     .drv_kobj             = NULL,
 
     .smu_version          = { 0 },
@@ -107,7 +105,7 @@ static ssize_t mp1_if_version_show(struct kobject *kobj, struct kobj_attribute *
 }
 
 static ssize_t codename_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    return sprintf(buff, "%02d\n", smu_get_codename());
+    return sprintf(buff, "%s\n", smu_get_codename());
 }
 
 static ssize_t pm_table_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
@@ -119,27 +117,27 @@ static ssize_t pm_table_show(struct kobject *kobj, struct kobj_attribute *attr, 
 }
 
 static ssize_t pm_table_version_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    ssize_t sz = sizeof(g_driver.pm_table_version);
+    const ssize_t sz = sizeof(g_driver.pm_table_version);
 
     memcpy(buff, &g_driver.pm_table_version, sz);
     return sz;
 }
 
 static ssize_t pm_table_size_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    ssize_t sz = sizeof(g_driver.pm_table_read_size);
+    const ssize_t sz = sizeof(g_driver.pm_table_read_size);
 
     memcpy(buff, &g_driver.pm_table_read_size, sz);
     return sz;
 }
 
 static ssize_t rsmu_cmd_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    ssize_t sz = sizeof(g_driver.smu_rsp);
+    const ssize_t sz = sizeof(g_driver.smu_rsp);
 
     memcpy(buff, &g_driver.smu_rsp, sz);
     return sz;
 }
 
-static ssize_t rsmu_cmd_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, size_t count) {
+static ssize_t rsmu_cmd_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, const size_t count) {
     u32 op;
 
     // To date, there has never been a command that actually exceeds FFh
@@ -160,13 +158,13 @@ static ssize_t rsmu_cmd_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 static ssize_t mp1_smu_cmd_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    ssize_t sz = sizeof(g_driver.smu_rsp);
+    const ssize_t sz = sizeof(g_driver.smu_rsp);
 
     memcpy(buff, &g_driver.smu_rsp, sz);
     return sz;
 }
 
-static ssize_t mp1_smu_cmd_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, size_t count) {
+static ssize_t mp1_smu_cmd_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, const size_t count) {
     u32 op;
 
     // To date, there has never been a command that actually exceeds FFh
@@ -187,13 +185,13 @@ static ssize_t mp1_smu_cmd_store(struct kobject *kobj, struct kobj_attribute *at
 }
 
 static ssize_t hsmp_smu_cmd_show(struct kobject* kobj, struct kobj_attribute* attr, char* buff) {
-    ssize_t sz = sizeof(g_driver.smu_rsp);
+    const ssize_t sz = sizeof(g_driver.smu_rsp);
 
     memcpy(buff, &g_driver.smu_rsp, sz);
     return sz;
 }
 
-static ssize_t hsmp_smu_cmd_store(struct kobject* kobj, struct kobj_attribute* attr, const char* buff, size_t count) {
+static ssize_t hsmp_smu_cmd_store(struct kobject* kobj, struct kobj_attribute* attr, const char* buff, const size_t count) {
     u32 op;
 
     // To date, there has never been a command that actually exceeds FFh
@@ -214,13 +212,13 @@ static ssize_t hsmp_smu_cmd_store(struct kobject* kobj, struct kobj_attribute* a
 }
 
 static ssize_t smu_args_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    ssize_t sz = sizeof(g_driver.smu_args);
+    const ssize_t sz = sizeof(g_driver.smu_args);
 
     memcpy(buff, &g_driver.smu_args.args, sz);
     return sz;
 }
 
-static ssize_t smu_args_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, size_t count) {
+static ssize_t smu_args_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, const size_t count) {
     if (count != sizeof(u32) * 6)
         return 0;
 
@@ -229,14 +227,13 @@ static ssize_t smu_args_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 static ssize_t smn_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    ssize_t sz = sizeof(g_driver.smn_result);
+    const ssize_t sz = sizeof(g_driver.smn_result);
 
     memcpy(buff, &g_driver.smn_result, sz);
     return sz;
 }
 
-static ssize_t smn_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff,
-size_t count) {
+static ssize_t smn_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, const size_t count) {
     u32 address, value;
 
     switch (count) {
@@ -312,13 +309,11 @@ static struct attribute_group drv_attr_group = {
     .attrs = drv_attrs,
 };
 
-static int ryzen_smu_get_version(enum smu_mailbox mb, int show) {
-    u32 ver;
+static int ryzen_smu_get_version(const smu_mailbox mb, const int show) {
+    const u32 ver = smu_get_version(g_driver.device, mb);
 
-    ver = smu_get_version(g_driver.device, mb);
-    if (ver >= 0 && ver <= 0xFF) {
-        pr_err("Failed to query the %sSMU version: %d",
-            mb == MAILBOX_TYPE_RSMU ? "R" : "MP1 ", ver);
+    if (ver <= 0xFF) {
+        pr_err("Failed to query the %sSMU version: %d", mb == MAILBOX_TYPE_RSMU ? "R" : "MP1 ", ver);
         return -EINVAL;
     }
 
@@ -337,7 +332,7 @@ static int ryzen_smu_get_version(enum smu_mailbox mb, int show) {
 }
 
 static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) {
-    enum smu_return_val ret;
+    smu_return_val ret;
 
     g_driver.device = dev;
 
@@ -350,7 +345,7 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
         smu_timeout_attempts = SMU_RETRIES_MIN;
 
     // Detect processor class & figure out MP1/RSMU support.
-    if (smu_init(g_driver.device) != 0) {
+    if (smu_init() != 0) {
         pr_err("Failed to initialize the SMU for use");
         return -ENODEV;
     }
@@ -369,8 +364,8 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
         // This shouldn't *typically* cause errors unless the array structure is messed with.
         // So, we left a warning above to not touch it.
         drv_attrs[MAX_ATTRS_LEN - 5] = &dev_attr_rsmu_cmd.attr;
-    }
-    else {
+
+    } else {
         pr_info("RSMU Mailbox: Disabled or not responding to commands.");
         goto _CONTINUE_SETUP;
     }
@@ -379,21 +374,21 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
     ret = smu_transfer_table_to_dram(g_driver.device);
     if (ret == SMU_Return_OK) {
         ret = smu_get_pm_table_version(g_driver.device, &g_driver.pm_table_version);
+
         if (ret != SMU_Return_OK && ret != SMU_Return_Unsupported) {
-            pr_err("Unable to resolve which PM table version the system uses -- disabling "
-                "feature (%d)", ret);
+            pr_err("Unable to resolve which PM table version the system uses -- disabling feature (%d)", ret);
             goto _CONTINUE_SETUP;
         }
 
         g_driver.pm_table = kzalloc(PM_TABLE_MAX_SIZE, GFP_KERNEL);
         if (g_driver.pm_table == NULL) {
-            pr_err("Unable to allocate kernel buffer for PM table mapping -- disabling PM table "
-                "feature");
+            pr_err("Unable to allocate kernel buffer for PM table mapping -- disabling PM table feature");
             goto _CONTINUE_SETUP;
         }
 
         // Perform an initial fill of the data for when the device is queued, saving time
         pr_debug("Probing the PM table for state changes");
+
         ret = smu_read_pm_table(dev, g_driver.pm_table, &g_driver.pm_table_read_size);
         if (ret == SMU_Return_OK) {
             pr_debug("Probe succeeded: read %ld bytes", g_driver.pm_table_read_size);
@@ -403,11 +398,11 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
 
             if (g_driver.pm_table_version)
                 drv_attrs[MAX_ATTRS_LEN - 2] = &dev_attr_pm_table_version.attr;
-        }
-        else
+
+        } else {
             pr_err("Failed to probe the PM table -- disabling feature (%d)", ret);
-    }
-    else {
+        }
+    } else {
         pr_debug("Notice: PM tables are not supported for the current platform (%d)", ret);
     }
 
@@ -437,13 +432,13 @@ static void ryzen_smu_remove(struct pci_dev *dev) {
 }
 
 static struct pci_device_id ryzen_smu_id_table[] = {
+    { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M00H_ROOT) },
+    { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M20H_ROOT) },
+    { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M60H_ROOT) },
     { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_17H_ROOT) },
     { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_17H_M10H_ROOT) },
     { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_17H_M30H_ROOT) },
     { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_17H_M60H_ROOT) },
-    { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M00H_ROOT) },
-    { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M20H_ROOT) },
-    { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M60H_ROOT) },
     { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_17H_MA0H_ROOT) },
     { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_19H_M10H_ROOT) },
     { PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_19H_M40H_ROOT) },
