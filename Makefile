@@ -1,5 +1,5 @@
 MOD 				:= ryzen_smu
-VERSION				:= 0.1.6
+VERSION				:= 0.1.7
 TARGET				:= $(shell uname -r)
 DKMS_ROOT_PATH			:= /usr/src/$(MOD)-$(VERSION)
 
