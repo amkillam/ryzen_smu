@@ -442,7 +442,7 @@ unsigned int get_max_cpu_freq(smu_obj_t* obj) {
         return 0;
 
     memset(&args, 0, sizeof(args));
-    if (smu_send_command(obj, 0x6E, &args, TYPE_RSMU) != SMU_Return_OK)
+    if (smu_send_command(obj, 0x6E, &args, SMU_TYPE_RSMU) != SMU_Return_OK)
         return 0;
 
     return args.args[0];
@@ -458,7 +458,7 @@ const char* get_pbo_scalar(smu_obj_t* obj) {
         return 0;
 
     memset(&args, 0, sizeof(args));
-    if (smu_send_command(obj, 0x6C, &args, TYPE_RSMU) != SMU_Return_OK)
+    if (smu_send_command(obj, 0x6C, &args, SMU_TYPE_RSMU) != SMU_Return_OK)
         return "?";
 
     sprintf(buf, "%.fx", args.args_f[0]);
