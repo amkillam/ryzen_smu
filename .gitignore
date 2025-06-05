@@ -1,8 +1,10 @@
+.idea/
 .vscode/
 scripts/__pycache__/
 scripts/pm_dumps/
 userspace/monitor_cpu
 *.o
+*.d
 *.ko
 *.cmd
 *.mod
@@ -10,4 +12,3 @@ userspace/monitor_cpu
 *.bin
 Module.symvers
 modules.order
-NOTES.txt

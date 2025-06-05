@@ -10,9 +10,8 @@ PATHS = -I"../lib"
 
 OUT = monitor_cpu
 
-SRC = monitor_cpu.c
-SRC += "../lib/libsmu.c"
+SRC = monitor_cpu.c ../lib/libsmu.c ../lib/smu_common.c
 
-all: monitor_cpu.c ../lib/libsmu.c
+all: monitor_cpu.c ../lib/libsmu.c ../lib/smu_common.c
 	$(CC) $(PATHS) $(CFLAGS) $(LDFLAGS) -o $(OUT) $(SRC)
 	$(STRIP) $(SFLAGS) $(OUT)
