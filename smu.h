@@ -68,7 +68,7 @@ void smu_cleanup(void);
 /**
  * Returns the running processor's detected code name.
  */
-const char* smu_get_codename(void);
+smu_processor_codename smu_get_codename(void);
 
 /**
  * Reads or writes 32 bit words to the SMU on the root NB PCI device.

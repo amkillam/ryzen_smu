@@ -103,7 +103,7 @@ static ssize_t mp1_if_version_show(struct kobject *kobj, struct kobj_attribute *
 }
 
 static ssize_t codename_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    return sprintf(buff, "%s\n", smu_get_codename());
+    return sprintf(buff, "%02d\n", smu_get_codename());
 }
 
 static ssize_t pm_table_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
