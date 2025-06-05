@@ -23,7 +23,7 @@
 #include "smu_common.h"
 
 /* Version the loaded driver must use to be compatible. */
-#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.8"
+#define LIBSMU_SUPPORTED_DRIVER_VERSION                    "0.1.7"
 
 /**
  * Mutex lock enumeration for specific components.
