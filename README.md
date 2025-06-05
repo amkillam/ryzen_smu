@@ -86,7 +86,7 @@ Be sure kernel headers, dev utilities such as `gcc` and `make` are installed bef
 
 ```sh
 sudo apt install dkms git build-essential linux-headers-$(uname -r)
-git clone https://gitlab.com/leogx9r/ryzen_smu.git
+git clone https://github.com/amkillam/ryzen_smu.git
 cd ryzen_smu
 
 sudo make dkms-install
@@ -96,7 +96,7 @@ sudo make dkms-install
 
 ```sh
 sudo pacman -S dkms git base-devel linux-headers-$(uname -r)
-git clone https://gitlab.com/leogx9r/ryzen_smu.git
+git clone https://github.com/amkillam/ryzen_smu.git
 cd ryzen_smu
 
 sudo make dkms-install
@@ -107,7 +107,7 @@ sudo make dkms-install
 The module may be built and inserted into the running kernel manually as follows:
 
 ```sh
-git clone https://gitlab.com/leogx9r/ryzen_smu.git
+git clone https://github.com/amkillam/ryzen_smu.git
 cd ryzen_smu
 
 make
@@ -168,7 +168,7 @@ SMU v46.54.0
 2
 
 # cat /sys/kernel/ryzen_smu_drv/codename
-StrixPoint
+4
 
 ```
 
@@ -223,7 +223,7 @@ Note: This file returns a string representation of the "Value" field above.
 
 #### `/sys/kernel/ryzen_smu_drv/codename`
 
-Returns the processor codename, or Unknown if the processor is not supported by ryzen_smu.
+Returns a numeric value containing the running processor's codename based on the [smu_processor_codename](lib/smu_common.h) enumeration. 
 
 #### `/sys/kernel/ryzen_smu_drv/rsmu_cmd` or `/sys/kernel/ryzen_smu_drv/mp1_smu_cmd` or `/sys/kernel/ryzen_smu_drv/hsmp_smu_cmd`
 
