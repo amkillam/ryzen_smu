@@ -88,7 +88,7 @@ Be sure kernel headers, dev utilities such as `gcc` and `make` are installed bef
 
 ```sh
 sudo apt install dkms git build-essential linux-headers-$(uname -r)
-git clone https://gitlab.com/leogx9r/ryzen_smu.git
+git clone https://github.com/amkillam/ryzen_smu.git
 cd ryzen_smu
 
 sudo make dkms-install
@@ -109,7 +109,7 @@ yay -S ryzen_smu-dkms-git
 The module may be built and inserted into the running kernel manually as follows:
 
 ```sh
-git clone https://gitlab.com/leogx9r/ryzen_smu.git
+git clone https://github.com/amkillam/ryzen_smu.git
 cd ryzen_smu
 
 make
