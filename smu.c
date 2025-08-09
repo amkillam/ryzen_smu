@@ -307,7 +307,8 @@ int smu_resolve_cpu_class(struct pci_dev *dev) {
   // Zen3 / Zen4
   // At least from Zen3 onward AMD reserves 16 model IDs per generation
   // Chagall: 0x00-0x0F, Stormpeak: 0x10-0x1f, etc...
-  // Ryzen Master uses this full reserved range to identify and probe CPUs unlike us
+  // Ryzen Master uses this full reserved range to identify and probe CPUs
+  // unlike us
   else if (cpu_family == 0x19) {
     switch (cpu_model) {
     case 0x01:
@@ -1127,6 +1128,7 @@ u32 smu_update_pmtable_size(u32 version) {
   case CODENAME_STRIXPOINT:
     switch (version) {
     case 0x5D0008:
+    case 0x5D0009: // assuming that Ryzen PRO is the same as the non PRO variant
       g_smu.pm_dram_map_size = 0xD54;
       break;
     default:
