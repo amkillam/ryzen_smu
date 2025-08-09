@@ -20,6 +20,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <string.h>
+#include <stdio.h>
 
 #include "libsmu.h"
 
@@ -46,7 +48,7 @@
 /* Maximum is defined as: "255.255.255.255\n" */
 #define LIBSMU_MAX_SMU_VERSION_LEN      16
 
-static int try_open_path(const char* pathname, int mode, int* fd) {
+static int try_open_path(const char* pathname, const int mode, int* fd) {
     int ret = 1;
 
     *fd = open(pathname, mode);
@@ -59,7 +61,8 @@ static int try_open_path(const char* pathname, int mode, int* fd) {
 }
 
 static smu_return_val smu_init_parse(smu_obj_t* obj) {
-    int ver_maj, ver_min, ver_rev, ver_alt, len, i, c;
+    int ver_maj, ver_min, ver_rev, ver_alt;
+    int ver_seg_num = 0;
     char rd_buf[1024];
     int tmp_fd, ret;
 
@@ -92,21 +95,23 @@ static smu_return_val smu_init_parse(smu_obj_t* obj) {
     if (ret < 0)
         return SMU_Return_RWError;
 
-    len = strlen(rd_buf);
-    for (i = 0, c = 0; i < len; i++)
+    for (int i = 0, len = strlen(rd_buf); i < len; ++i) {
         if (rd_buf[i] == '.')
-            c++;
+            ++ver_seg_num;
+    }
 
     // Depending on the processor, there can be either a 3 or 4 part version segmentation.
     // We account for both.
-    switch (c) {
-        case 2:
+    switch (ver_seg_num) {
+        case 2: {
             ret = sscanf(rd_buf, "%d.%d.%d\n", &ver_maj, &ver_min, &ver_rev);
             obj->smu_version = ver_maj << 16 | ver_min << 8 | ver_rev;
+        }
             break;
-        case 3:
+        case 3: {
             ret = sscanf(rd_buf, "%d.%d.%d.%d\n", &ver_maj, &ver_min, &ver_rev, &ver_alt);
             obj->smu_version = ver_maj << 24 | ver_min << 16 | ver_rev << 8 | ver_alt;
+        }
             break;
         default:
             return SMU_Return_RWError;
@@ -126,9 +131,7 @@ static smu_return_val smu_init_parse(smu_obj_t* obj) {
         return SMU_Return_RWError;
 
     obj->codename = atoi(rd_buf);
-
-    if (obj->codename <= CODENAME_UNDEFINED ||
-        obj->codename >= CODENAME_COUNT)
+    if (obj->codename <= CODENAME_UNDEFINED || obj->codename >= CODENAME_COUNT)
         return SMU_Return_Unsupported;
 
     // MP1 version must also be present.
@@ -163,14 +166,11 @@ static smu_return_val smu_init_parse(smu_obj_t* obj) {
     ret = read(tmp_fd, &obj->pm_table_size, sizeof(obj->pm_table_size));
     close(tmp_fd);
 
-    if (ret <= 0)
-        return SMU_Return_RWError;
-
-    return SMU_Return_OK;
+    return ret <= 0 ? SMU_Return_RWError : SMU_Return_OK;
 }
 
 smu_return_val smu_init(smu_obj_t* obj) {
-    int i, ret;
+    int ret;
 
     memset(obj, 0, sizeof(*obj));
 
@@ -189,12 +189,11 @@ smu_return_val smu_init(smu_obj_t* obj) {
     // RSMU is optionally supported for some codenames.
     if (try_open_path(RSMU_CMD_PATH, O_RDWR, &obj->fd_rsmu_cmd)) {
         // This file may optionally exist only if PM tables are supported AND RSMU as well.
-        if (smu_pm_tables_supported(obj) &&
-            !try_open_path(PM_PATH, O_RDONLY, &obj->fd_pm_table))
+        if (smu_pm_tables_supported(obj) && !try_open_path(PM_PATH, O_RDONLY, &obj->fd_pm_table))
             return SMU_Return_RWError;
     }
 
-    for (i = 0; i < SMU_MUTEX_COUNT; i++)
+    for (int i = 0; i < SMU_MUTEX_COUNT; ++i)
         pthread_mutex_init(&obj->lock[i], NULL);
 
     obj->init = 1;
@@ -203,8 +202,6 @@ smu_return_val smu_init(smu_obj_t* obj) {
 }
 
 void smu_free(smu_obj_t* obj) {
-    int i;
-
     if (!obj->init)
         return;
 
@@ -226,33 +223,34 @@ void smu_free(smu_obj_t* obj) {
     if (obj->fd_pm_table)
         close(obj->fd_pm_table);
 
-    for (i = 0; i < SMU_MUTEX_COUNT; i++)
+    for (int i = 0; i < SMU_MUTEX_COUNT; ++i)
         pthread_mutex_destroy(&obj->lock[i]);
 
     memset(obj, 0, sizeof(*obj));
 }
 
-const char* smu_get_fw_version(smu_obj_t* obj) {
-    static char fw[32] = { 0 };
-
+const char* smu_get_fw_version(const smu_obj_t* obj) {
     if (!obj->init)
         return "Uninitialized";
+
+    static char fw[32] = { 0 };
 
     // Determine if this is a 24-bit or 32-bit version and show it accordingly.
     if (obj->smu_version & 0xff000000) {
         sprintf(fw, "%d.%d.%d.%d",
             (obj->smu_version >> 24) & 0xff, (obj->smu_version >> 16) & 0xff,
             (obj->smu_version >> 8) & 0xff, obj->smu_version & 0xff);
-    }
-    else
+
+    } else {
         sprintf(fw, "%d.%d.%d",
             (obj->smu_version >> 16) & 0xff, (obj->smu_version >> 8) & 0xff,
             obj->smu_version & 0xff);
+    }
 
     return fw;
 }
 
-smu_return_val smu_read_smn_addr(smu_obj_t* obj, unsigned int address, unsigned int* result) {
+smu_return_val smu_read_smn_addr(smu_obj_t* obj, const unsigned int address, unsigned int* result) {
     unsigned int ret;
 
     // Don't attempt to execute without initialization.
@@ -276,17 +274,12 @@ BREAK_OUT:
     return ret == sizeof(unsigned int) ? SMU_Return_OK : SMU_Return_RWError;
 }
 
-smu_return_val smu_write_smn_addr(smu_obj_t* obj, unsigned int address, unsigned int value) {
-    unsigned int buffer[2], ret;
-
-    // Don't attempt to execute without initialization.
+smu_return_val smu_write_smn_addr(smu_obj_t* obj, const unsigned int address, const unsigned int value) {
     if (!obj->init)
         return SMU_Return_Failed;
 
-    // buffer[0] contains the destination write target.
-    // buffer[1] contains the value to write to the address.
-    buffer[0] = address;
-    buffer[1] = value;
+    const unsigned int buffer[2] = {address, value};
+    unsigned int ret;
 
     pthread_mutex_lock(&obj->lock[SMU_MUTEX_SMN]);
 
@@ -298,29 +291,26 @@ smu_return_val smu_write_smn_addr(smu_obj_t* obj, unsigned int address, unsigned
     return ret == sizeof(buffer) ? SMU_Return_OK : SMU_Return_RWError;
 }
 
-smu_return_val smu_send_command(smu_obj_t* obj, unsigned int op, smu_arg_t* args,
-    enum smu_mailbox mailbox) {
-    unsigned int ret, status, fd_smu_cmd;
-
-    // Don't attempt to execute without initialization.
+smu_return_val smu_send_command(smu_obj_t* obj, const unsigned int op, smu_arg_t* args, const smu_mailbox mailbox) {
     if (!obj->init)
         return SMU_Return_Failed;
 
+    unsigned int ret, status, fd_smu_cmd;
+
     switch (mailbox) {
-        case SMU_TYPE_RSMU:
+        case MAILBOX_TYPE_RSMU:
             fd_smu_cmd = obj->fd_rsmu_cmd;
             break;
-        case SMU_TYPE_MP1:
+        case MAILBOX_TYPE_MP1:
             fd_smu_cmd = obj->fd_mp1_smu_cmd;
             break;
-        case SMU_TYPE_HSMP:
+        case MAILBOX_TYPE_HSMP:
             fd_smu_cmd = obj->fd_hsmp_smu_cmd;
             break;
         default:
             return SMU_Return_Unsupported;
     }
 
-    // Check if fd is valid.
     if (!fd_smu_cmd)
         return SMU_Return_Unsupported;
 
@@ -366,7 +356,7 @@ BREAK_OUT:
     return ret;
 }
 
-smu_return_val smu_read_pm_table(smu_obj_t* obj, unsigned char* dst, size_t dst_len) {
+smu_return_val smu_read_pm_table(smu_obj_t* obj, unsigned char* dst, const size_t dst_len) {
     int ret;
 
     // Don't attempt to execute without initialization.
@@ -391,7 +381,7 @@ smu_return_val smu_read_pm_table(smu_obj_t* obj, unsigned char* dst, size_t dst_
     return ret;
 }
 
-const char* smu_return_to_str(smu_return_val val) {
+const char* smu_return_to_str(const smu_return_val val) {
     switch (val) {
         case SMU_Return_OK:
             return "OK";
@@ -426,61 +416,10 @@ const char* smu_return_to_str(smu_return_val val) {
     }
 }
 
-const char* smu_codename_to_str(smu_obj_t* obj) {
-    switch (obj->codename) {
-        case CODENAME_CASTLEPEAK:
-            return "CastlePeak";
-        case CODENAME_COLFAX:
-            return "Colfax";
-        case CODENAME_MATISSE:
-            return "Matisse";
-        case CODENAME_PICASSO:
-            return "Picasso";
-        case CODENAME_PINNACLERIDGE:
-            return "Pinnacle Ridge";
-        case CODENAME_RAVENRIDGE2:
-            return "Raven Ridge 2";
-        case CODENAME_RAVENRIDGE:
-            return "Raven Ridge";
-        case CODENAME_RENOIR:
-            return "Renoir";
-        case CODENAME_SUMMITRIDGE:
-            return "Summit Ridge";
-        case CODENAME_THREADRIPPER:
-            return "Thread Ripper";
-        case CODENAME_REMBRANDT:
-            return "Rembrandt";
-        case CODENAME_RAPHAEL:
-            return "Raphael";
-        case CODENAME_GRANITERIDGE:
-            return "GraniteRidge";
-        case CODENAME_VERMEER:
-            return "Vermeer";
-        case CODENAME_VANGOGH:
-            return "Van Gogh";
-        case CODENAME_CEZANNE:
-            return "Cezanne";
-        case CODENAME_MILAN:
-            return "Milan";
-        case CODENAME_DALI:
-            return "Dali";
-        case CODENAME_LUCIENNE:
-            return "Lucienne";
-        case CODENAME_NAPLES:
-            return "Naples";
-        case CODENAME_PHOENIX:
-            return "Phoenix";
-        case CODENAME_STRIXPOINT:
-            return "Strix Point";
-        case CODENAME_HAWKPOINT:
-            return "Hawk Point";
-        case CODENAME_STORMPEAK:
-            return "Storm Peak";
-        default:
-            return "Undefined";
-    }
+const char* smu_codename_to_str(const smu_obj_t* obj) {
+    return get_code_name(obj->codename);
 }
 
-unsigned int smu_pm_tables_supported(smu_obj_t* obj) {
+unsigned int smu_pm_tables_supported(const smu_obj_t* obj) {
     return obj->pm_table_size && obj->pm_table_version;
 }

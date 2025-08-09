@@ -42,8 +42,8 @@ can also be accessed:
 
 - Granite Ridge ( Ryzen 9000 Desktop Series )
 - Strix Point ( Ryzen AI 300 )
-- Hawk Point ( Ryzen 8000 Mobile Series )
-- Phoenix ( Ryzen 8000 APU Series )
+- Hawk Point ( Ryzen 8000 APU Series )
+- Phoenix ( Ryzen 7000 APU Series )
 - Storm Peak ( ThreadRipper 7000 Workstation Series )
 - Raphael ( Ryzen 7000 Desktop Series )
 - Chagall ( ThreadRipper 5000 Workstation Series )
@@ -76,8 +76,6 @@ exposed:
 - `pm_table_size`
 - `pm_table`
 
-
-
 ## Installation
 
 The kernel module may be installed either by DKMS or manually building and inserting the module.
@@ -96,12 +94,12 @@ sudo make dkms-install
 
 ### Arch Linux
 
-Available on the [AUR](https://aur.archlinux.org/packages/ryzen_smu-dkms-git/).
-
-Install it using your AUR helper of choice, example:
-
 ```sh
-yay -S ryzen_smu-dkms-git
+sudo pacman -S dkms git base-devel linux-headers-$(uname -r)
+git clone https://github.com/amkillam/ryzen_smu.git
+cd ryzen_smu
+
+sudo make dkms-install
 ```
 
 ### Stand-alone Installation
@@ -138,7 +136,7 @@ Upon loading the module, you should see output in your `dmesg` window listing th
 # dmesg
 
 ...
-[1091.154018] ryzen_smu: CPUID: family 0x17, model 0x71, stepping 0x0, package 0x2
+[1091.154018] ryzen_smu: CPUID: family 0x17, model 0x71, package 0x2
 [1091.154385] ryzen_smu: SMU v46.54.0
 ...
 ```
@@ -171,9 +169,6 @@ SMU v46.54.0
 
 # cat /sys/kernel/ryzen_smu_drv/codename
 4
-
-# cat /sys/kernel/ryzen_smu_drv/drv_version
-0.1.7
 
 ```
 
@@ -228,39 +223,7 @@ Note: This file returns a string representation of the "Value" field above.
 
 #### `/sys/kernel/ryzen_smu_drv/codename`
 
-Returns a numeric index containing the running processor's codename based on the following
-enumeration:
-
-| Hex | Decimal | Code Name      |
-|:---:|:-------:|:--------------:|
-| 00h | 0       | Unknown        |
-| 01h | 1       | Colfax         |
-| 02h | 2       | Renoir         |
-| 03h | 3       | Picasso        |
-| 04h | 4       | Matisse        |
-| 05h | 5       | Threadripper   |
-| 06h | 6       | Castle Peak    |
-| 07h | 7       | Raven Ridge    |
-| 08h | 8       | Raven Ridge 2  |
-| 09h | 9       | Summit Ridge   |
-| 0Ah | 10      | Pinnacle Ridge |
-| 0Bh | 11      | Rembrandt      |
-| 0Ch | 12      | Vermeer        |
-| 0Dh | 13      | Vangogh        |
-| 0Eh | 14      | Cezanne        |
-| 0Fh | 15      | Milan          |
-| 10h | 16      | Dali           |
-| 11h | 17      | Luciene        |
-| 12h | 18      | Naples         |
-| 13h | 19      | Chagall        |
-| 14h | 20      | Raphael        |
-| 15h | 21      | Phoenix        |
-| 16h | 22      | Strix Point    |
-| 17h | 23      | Granite Ridge  |
-| 18h | 24      | Hawk Point     |
-| 19h | 25      | Storm Peak     |
-
-Note: This file returns 2 characters of the 'Decimal' encoded index.
+Returns a numeric value containing the running processor's codename based on the [smu_processor_codename](lib/smu_common.h) enumeration. 
 
 #### `/sys/kernel/ryzen_smu_drv/rsmu_cmd` or `/sys/kernel/ryzen_smu_drv/mp1_smu_cmd` or `/sys/kernel/ryzen_smu_drv/hsmp_smu_cmd`
 
