@@ -358,6 +358,8 @@ int smu_resolve_cpu_class(struct pci_dev *dev) {
       g_smu.codename = CODENAME_GRANITERIDGE;
       break;
     case 0x70: // Strix Halo (AI MAX+ 395)
+      g_smu.codename = CODENAME_STRIXHALO;
+      break;
     default:
       pr_err("CPUID: Unknown Zen5/6 processor model: 0x%X (CPUID: 0x%08X)",
              cpu_model, cpuid);
@@ -417,6 +419,7 @@ int smu_init(struct pci_dev *dev) {
   case CODENAME_PHOENIX:
   case CODENAME_STRIXPOINT:
   case CODENAME_HAWKPOINT:
+  case CODENAME_STRIXHALO:
     g_smu.addr_rsmu_mb_cmd = 0x3B10A20;
     g_smu.addr_rsmu_mb_rsp = 0x3B10A80;
     g_smu.addr_rsmu_mb_args = 0x3B10A88;
@@ -465,6 +468,7 @@ LOG_RSMU:
   case CODENAME_PHOENIX:
   case CODENAME_STRIXPOINT:
   case CODENAME_HAWKPOINT:
+  case CODENAME_STRIXHALO:
     goto MP1_DETECT;
   default:
     pr_err("Unknown processor codename: %d", g_smu.codename);
@@ -529,6 +533,7 @@ MP1_DETECT:
     g_smu.addr_mp1_mb_args = 0x3B10998;
     break;
   case CODENAME_STRIXPOINT:
+  case CODENAME_STRIXHALO:
     g_smu.mp1_if_ver = IF_VERSION_13;
     g_smu.addr_mp1_mb_cmd = 0x3b10928;
     g_smu.addr_mp1_mb_rsp = 0x3b10978;
@@ -600,6 +605,8 @@ const char *getCodeName(enum smu_processor_codename codename) {
     return "Hawk Point";
   case CODENAME_STORMPEAK:
     return "Storm Peak";
+  case CODENAME_STRIXHALO:
+    return "Strix Halo";
   default:
     return "Undefined";
   }
@@ -672,6 +679,7 @@ u64 smu_get_dram_base_address(struct pci_dev *dev) {
   case CODENAME_REMBRANDT:
   case CODENAME_PHOENIX:
   case CODENAME_STRIXPOINT:
+  case CODENAME_STRIXHALO:
   case CODENAME_HAWKPOINT:
     fn[0] = 0x66;
     goto BASE_ADDR_CLASS_1;
@@ -788,6 +796,7 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev *dev) {
   case CODENAME_REMBRANDT:
   case CODENAME_PHOENIX:
   case CODENAME_STRIXPOINT:
+  case CODENAME_STRIXHALO:
   case CODENAME_HAWKPOINT:
     args.s.arg0 = 3;
     fn = 0x65;
@@ -882,6 +891,7 @@ enum smu_return_val smu_get_pm_table_version(struct pci_dev *dev,
   case CODENAME_REMBRANDT:
   case CODENAME_PHOENIX:
   case CODENAME_STRIXPOINT:
+  case CODENAME_STRIXHALO:
   case CODENAME_HAWKPOINT:
     fn = 0x06;
     break;
@@ -1135,6 +1145,15 @@ u32 smu_update_pmtable_size(u32 version) {
       goto UNKNOWN_PM_TABLE_VERSION;
     }
     break;
+  case CODENAME_STRIXHALO:
+    switch (version) {
+    case 0x64020C:
+      g_smu.pm_dram_map_size = 0xE50;
+      break;
+    default:
+      goto UNKNOWN_PM_TABLE_VERSION;
+    }
+    break;
   case CODENAME_STORMPEAK:
     switch (version) {
     case 0x5C0002:
@@ -1212,6 +1231,7 @@ enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
         g_smu.codename == CODENAME_REMBRANDT ||
         g_smu.codename == CODENAME_PHOENIX ||
         g_smu.codename == CODENAME_STRIXPOINT ||
+        g_smu.codename == CODENAME_STRIXHALO ||
         g_smu.codename == CODENAME_CEZANNE ||
         g_smu.codename == CODENAME_CHAGALL ||
         g_smu.codename == CODENAME_MILAN ||

@@ -100,6 +100,7 @@ typedef enum {
     CODENAME_GRANITERIDGE,
     CODENAME_HAWKPOINT,
     CODENAME_STORMPEAK,
+    CODENAME_STRIXHALO,
     CODENAME_COUNT
 } smu_processor_codename;
 
