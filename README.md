@@ -94,6 +94,8 @@ cd ryzen_smu
 sudo make dkms-install
 ```
 
+Proxmox users can download linux headers with the package `proxmox-default-headers` instead of `linux-headers-$(uname -r)`
+
 ### Arch Linux
 
 Available on the [AUR](https://aur.archlinux.org/packages/ryzen_smu-dkms-git/).
