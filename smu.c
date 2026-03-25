@@ -357,6 +357,9 @@ int smu_resolve_cpu_class(struct pci_dev *dev) {
     case 0x44:
       g_smu.codename = CODENAME_GRANITERIDGE;
       break;
+    case 0x60: //Strixpoint Ryzen AI 350
+      g_smu.codename = CODENAME_STRIXPOINT;
+      break;
     case 0x70: // Strix Halo (AI MAX+ 395)
       g_smu.codename = CODENAME_STRIXHALO;
       break;
@@ -1139,6 +1142,9 @@ u32 smu_update_pmtable_size(u32 version) {
     switch (version) {
     case 0x5D0008:
     case 0x5D0009: // assuming that Ryzen PRO is the same as the non PRO variant
+      g_smu.pm_dram_map_size = 0xD54;
+      break;
+    case 0x650007: // Ryzen AI 7 350 variant
       g_smu.pm_dram_map_size = 0xD54;
       break;
     default:
