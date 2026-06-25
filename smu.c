@@ -351,7 +351,7 @@ int smu_resolve_cpu_class(struct pci_dev *dev) {
   // Zen 5
   else if (cpu_family == 0x1a) {
     switch (cpu_model) {
-    case 0x24:
+    case 0x24: // Strix Point (Ryzen AI 9 HX 370, family 0x1A model 0x24)
       g_smu.codename = CODENAME_STRIXPOINT;
       break;
     case 0x44:
@@ -1141,7 +1141,7 @@ u32 smu_update_pmtable_size(u32 version) {
   case CODENAME_STRIXPOINT:
     switch (version) {
     case 0x5D0008:
-    case 0x5D0009: // assuming that Ryzen PRO is the same as the non PRO variant
+    case 0x5D0009: // Ryzen PRO / Ryzen AI 9 HX 370 (Strix Point, verified pm_table_version=0x5D0009, pm_table_size=0xD54)
       g_smu.pm_dram_map_size = 0xD54;
       break;
     case 0x650007: // Ryzen AI 7 350 variant
