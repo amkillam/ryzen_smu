@@ -156,7 +156,7 @@ def test_get_version():
     if args == False:
         return False
 
-    v_test = "{:d}.{:d}.{:d}\n".format(
+    v_test = "{:d}.{:d}.{:d}".format(
         args[0] >> 16 & 0xFF, args[0] >> 8 & 0xFF, args[0] & 0xFF
     )
 
