@@ -1153,6 +1153,12 @@ u32 smu_update_pmtable_size(u32 version) {
     break;
   case CODENAME_STRIXHALO:
     switch (version) {
+    // 0x64010C is the ONEXPLAYER X2Mini PRO (Ryzen AI MAX+ 388, SMU
+    // v10.100.6.0). It differs from 0x64020C only in the middle byte and takes
+    // the same size, which is not published by AMD and was validated on
+    // hardware: after writing distinct limits via MP1 messages 0x14/0x15/0x16,
+    // the stapm/fast/slow floats at offsets 0x0/0x8/0x10 read them back.
+    case 0x64010C:
     case 0x64020C:
       g_smu.pm_dram_map_size = 0xE50;
       break;
