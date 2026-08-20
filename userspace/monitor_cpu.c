@@ -32,10 +32,37 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <x86intrin.h>
+
 #include <libsmu.h>
 
 #define PROGRAM_VERSION                 "1.0"
 #define PM_TABLE_SUPPORTED_VERSION      0x240903
+#define PM_TABLE_VERSION_RAPHAEL_540104 0x540104
+
+/* Validated float indices for PM table 0x540104 (Raphael, 8 core).
+ * Established by measurement on a Ryzen 7 7800X3D (SMU v4.84.4.0),
+ * idle vs all-core load, cross-checked against k10temp and cpufreq.
+ * Indices that did not survive measurement are intentionally absent. */
+#define R54_IOD_HOTSPOT     11
+#define R54_PKG_POWER        3
+#define R54_FCLK            70
+#define R54_MCLK            74   /* MCLK/UCLK are indistinguishable at 1:1 */
+#define R54_UCLK            78
+#define R54_VSOC            82
+#define R54_VDDP           269
+#define R54_VID            275
+#define R54_CORE_VOLTAGE   301
+#define R54_CORE_TEMP      309
+#define R54_CORE_CLOCK     317
+#define R54_MAX_CORES        8
+#define R54_MIN_FLOATS     325   /* highest index used + 1 */
+
+static inline float r54(const unsigned char* buf, unsigned int idx) {
+    float v;
+    memcpy(&v, buf + (idx * sizeof(float)), sizeof(float));
+    return v;
+}
 
 #define READ_SMN_V1(offs) { if (smu_read_smn_addr(&obj, offs + offset, &value1) != SMU_Return_OK) goto _READ_ERROR; }
 #define READ_SMN_V2(offs) { if (smu_read_smn_addr(&obj, offs + offset, &value2) != SMU_Return_OK) goto _READ_ERROR; }
@@ -211,6 +238,60 @@ typedef struct {
 
 static smu_obj_t obj;
 static int update_time_s = 1;
+
+/* Reference clock (BCLK / "eCLK" / BCLK1) in MHz.
+ *
+ * The SMU reports core, fabric and memory clocks as a ratio against a NOMINAL
+ * 100 MHz reference - the PM table literally carries 100.00 in its reference
+ * fields even when the board's external clock generator is running elsewhere.
+ * So on a BCLK-overclocked system every reported clock is low by ref/100.
+ *
+ * 0 means "auto-detect at startup"; -b overrides. */
+static double ref_clk_mhz = 0.0;
+static int    ref_clk_auto = 0;
+
+/* Derive the true reference clock.
+ *
+ * The invariant TSC ticks at (nominal base ratio x reference clock), and the
+ * kernel calibrates TSC at boot against a timer that is NOT driven by the
+ * external clock generator - so measuring TSC against CLOCK_MONOTONIC and
+ * dividing by the ACPI-declared nominal frequency recovers the real reference.
+ *
+ * Verified on a 7800X3D at BCLK 105: TSC 4409.88 MHz / nominal 4201 MHz
+ * -> 104.97 MHz, stable to +/-0.01 across runs. The alternative of comparing
+ * PM-table clocks against cpufreq is far noisier (+/-1.5 MHz at idle). */
+static double detect_ref_clk(void) {
+    struct timespec a, b, nap = { 0, 200000000L };
+    unsigned long long t0, t1;
+    double elapsed, tsc_mhz, nominal = 0.0, ref;
+    FILE* fp;
+
+    fp = fopen("/sys/devices/system/cpu/cpu0/acpi_cppc/nominal_freq", "r");
+    if (!fp)
+        return 100.0;
+    if (fscanf(fp, "%lf", &nominal) != 1)
+        nominal = 0.0;
+    fclose(fp);
+    if (nominal < 500.0)          /* implausible / unavailable */
+        return 100.0;
+
+    clock_gettime(CLOCK_MONOTONIC, &a);
+    t0 = __rdtsc();
+    nanosleep(&nap, NULL);
+    t1 = __rdtsc();
+    clock_gettime(CLOCK_MONOTONIC, &b);
+
+    elapsed = (b.tv_sec - a.tv_sec) + (b.tv_nsec - a.tv_nsec) / 1e9;
+    if (elapsed <= 0.0)
+        return 100.0;
+
+    tsc_mhz = (double)(t1 - t0) / elapsed / 1e6;
+    ref = tsc_mhz / nominal * 100.0;
+
+    if (ref < 90.0 || ref > 130.0) /* nonsense - fall back to nominal */
+        return 100.0;
+    return ref;
+}
 
 void print_memory_timings() {
     const char* bool_str[2] = { "Disabled", "Enabled" };
@@ -465,6 +546,79 @@ const char* get_pbo_scalar(smu_obj_t* obj) {
     return buf;
 }
 
+/* Index-based monitor for PM table 0x540104 (Raphael).
+ * Deliberately prints only fields validated on real hardware; the rich
+ * per-rail display used for 0x240903 does not map onto this layout. */
+void start_pm_monitor_540104(void) {
+    unsigned char *pm_buf;
+    const char *name, *codename, *smu_fw_ver;
+    unsigned int cores, ccds, ccxs, cores_per_ccx, i, n_floats;
+    double bs;
+
+    if (!smu_pm_tables_supported(&obj)) {
+        fprintf(stderr, "PM Tables are not supported on this platform.\n");
+        exit(0);
+    }
+
+    n_floats = obj.pm_table_size / sizeof(float);
+    if (n_floats < R54_MIN_FLOATS) {
+        fprintf(stderr, "PM table 0x540104 smaller than expected (%u floats, need %u).\n",
+            n_floats, (unsigned int)R54_MIN_FLOATS);
+        exit(0);
+    }
+
+    bs = ref_clk_mhz / 100.0;
+
+    name       = get_processor_name();
+    codename   = smu_codename_to_str(&obj);
+    smu_fw_ver = smu_get_fw_version(&obj);
+    get_processor_topology(&ccds, &ccxs, &cores_per_ccx, &cores);
+    if (cores > R54_MAX_CORES)
+        cores = R54_MAX_CORES;
+
+    pm_buf = calloc(obj.pm_table_size, sizeof(unsigned char));
+    if (!pm_buf) {
+        fprintf(stderr, "Out of memory.\n");
+        exit(-1);
+    }
+
+    while (1) {
+        if (smu_read_pm_table(&obj, pm_buf, obj.pm_table_size) != SMU_Return_OK)
+            continue;
+
+        fprintf(stdout, "\e[1;1H\e[2J");
+        fprintf(stdout, "╭────────────────────────────────────────────────┬─────────────────────────────────────────────────╮\n");
+        print_line("CPU Model", name);
+        print_line("Processor Code Name", codename);
+        print_line("Core Configuration", "%d (%d-%d-%d)", cores, ccds, ccxs, cores_per_ccx);
+        print_line("SMU FW Version", "v%s", smu_fw_ver);
+        print_line("PM Table Version", "0x%X (index-mapped)", obj.pm_table_version);
+        print_line("Reference Clock", "%.2f MHz (%s, clocks scaled x%.4f)",
+            ref_clk_mhz, ref_clk_auto ? "auto-detected" : "set via -b", bs);
+        fprintf(stdout, "╰────────────────────────────────────────────────┴─────────────────────────────────────────────────╯\n");
+
+        for (i = 0; i < cores; i++)
+            print_line("Core Temp / Volt / Clock", "Core %d | %6.2f C | %6.3f V | %6.3f GHz", i,
+                r54(pm_buf, R54_CORE_TEMP + i),
+                r54(pm_buf, R54_CORE_VOLTAGE + i),
+                r54(pm_buf, R54_CORE_CLOCK + i) * bs);
+
+        fprintf(stdout, "╭────────────────────────────────────────────────┬─────────────────────────────────────────────────╮\n");
+        print_line("IOD Hotspot Temperature", "%6.2f C", r54(pm_buf, R54_IOD_HOTSPOT));
+        print_line("Package Power", "%6.3f W", r54(pm_buf, R54_PKG_POWER));
+        print_line("Peak Core Voltage (VID)", "%6.4f V", r54(pm_buf, R54_VID));
+        print_line("SoC Voltage (VSOC)", "%6.4f V", r54(pm_buf, R54_VSOC));
+        print_line("VDDP Voltage", "%6.4f V", r54(pm_buf, R54_VDDP));
+        print_line("Fabric Clock (FCLK)", "%6.1f MHz", r54(pm_buf, R54_FCLK) * bs);
+        print_line("Memory Clock (MCLK)", "%6.1f MHz", r54(pm_buf, R54_MCLK) * bs);
+        print_line("Unified Mem Clock (UCLK)", "%6.1f MHz", r54(pm_buf, R54_UCLK) * bs);
+        fprintf(stdout, "╰────────────────────────────────────────────────┴─────────────────────────────────────────────────╯\n");
+
+        fflush(stdout);
+        sleep(update_time_s);
+    }
+}
+
 void start_pm_monitor(int force) {
     float total_usage, peak_core_frequency, core_voltage, core_frequency, total_core_voltage,
         average_voltage, package_sleep_time, core_sleep_time, edc_value, total_core_C6;
@@ -477,6 +631,11 @@ void start_pm_monitor(int force) {
     if (!smu_pm_tables_supported(&obj)) {
         fprintf(stderr, "PM Tables are not supported on this platform.\n");
         exit(0);
+    }
+
+    if (obj.pm_table_version == PM_TABLE_VERSION_RAPHAEL_540104) {
+        start_pm_monitor_540104();
+        return;
     }
 
     if (!force && obj.pm_table_version != PM_TABLE_SUPPORTED_VERSION) {
@@ -646,7 +805,10 @@ void show_help(char* program) {
             "\t-v - Show program version.\n"
             "\t-m - Print DRAM Timings and exit.\n"
             "\t-f - Force PM table monitoring even if the PM table version is not supported.\n"
-            "\t-u<seconds> - Update the monitoring only after this number of second(s) have passed. Defaults to 1.\n",
+            "\t-u<seconds> - Update the monitoring only after this number of second(s) have passed. Defaults to 1.\n"
+            "\t-b<MHz> - Reference clock (BCLK / eCLK) in MHz. Auto-detected from the TSC by default.\n"
+            "\t          The SMU reports clocks against a nominal 100 MHz reference, so on a\n"
+            "\t          BCLK-overclocked system reported clocks are low by ref/100. Example: -b105\n",
         program
     );
 }
@@ -657,7 +819,7 @@ void parse_args(int argc, char** argv) {
     core = 0;
     force = 0;
 
-    while ((c = getopt(argc, argv, "vmfuh:")) != -1) {
+    while ((c = getopt(argc, argv, "vmfuh:b:")) != -1) {
         switch (c) {
             case 'v':
                 print_version();
@@ -671,6 +833,15 @@ void parse_args(int argc, char** argv) {
             case 'u':
                 // TODO
                 break;
+            case 'b': {
+                double b = atof(optarg);
+                if (b < 90.0 || b > 130.0) {
+                    fprintf(stderr, "Reference clock (-b) must be between 90 and 130 MHz.\n");
+                    exit(0);
+                }
+                ref_clk_mhz = b;
+                break;
+            }
             case 'h':
                 show_help(argv[0]);
                 exit(0);
@@ -679,6 +850,11 @@ void parse_args(int argc, char** argv) {
             default:
                 break;
         }
+    }
+
+    if (ref_clk_mhz == 0.0) {
+        ref_clk_mhz = detect_ref_clk();
+        ref_clk_auto = 1;
     }
 
     start_pm_monitor(force);
