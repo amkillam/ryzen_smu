@@ -1154,6 +1154,7 @@ u32 smu_update_pmtable_size(u32 version) {
     switch (version) {
     case 0x5D0008:
     case 0x5D0009: // Ryzen PRO / Ryzen AI 9 HX 370 (Strix Point, verified pm_table_version=0x5D0009, pm_table_size=0xD54)
+    case 0x5D000B: // AMD Ryzen AI 9 365 (Strix Point)
       g_smu.pm_dram_map_size = 0xD54;
       break;
     case 0x650007: // Ryzen AI 7 350 variant
