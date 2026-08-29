@@ -210,7 +210,7 @@ enum smu_return_val smu_send_command(struct pci_dev *dev, u32 op,
   // Step 6: If the Response register contains OK, then SMU has finished
   // processing
   //  the message.
-  if (tmp != SMU_Return_OK && !retries) {
+  if (tmp != SMU_Return_OK) {
     mutex_unlock(&amd_smu_mutex);
 
     // The RSP register is still 0, the SMU is still processing the request or
