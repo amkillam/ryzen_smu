@@ -1301,12 +1301,14 @@ enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
     g_smu.pm_jiffies = jiffies;
 
     ret = smu_transfer_table_to_dram(dev);
-    if (ret != SMU_Return_OK)
+    if (ret != SMU_Return_OK && ret != SMU_Return_CmdRejectedPrereq &&
+        ret != SMU_Return_CmdRejectedBusy)
       return ret;
 
     if (g_smu.pm_dram_map_size_alt) {
       ret = smu_transfer_2nd_table_to_dram(dev);
-      if (ret != SMU_Return_OK)
+      if (ret != SMU_Return_OK && ret != SMU_Return_CmdRejectedPrereq &&
+          ret != SMU_Return_CmdRejectedBusy)
         return ret;
     }
   }

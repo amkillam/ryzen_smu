@@ -398,7 +398,8 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
 
     // Check that PM table options are supported before adding it to the attr list
     ret = smu_transfer_table_to_dram(g_driver.device);
-    if (ret == SMU_Return_OK) {
+    if (ret == SMU_Return_OK || ret == SMU_Return_CmdRejectedPrereq ||
+        ret == SMU_Return_CmdRejectedBusy) {
         ret = smu_get_pm_table_version(g_driver.device, &g_driver.pm_table_version);
         if (ret != SMU_Return_OK && ret != SMU_Return_Unsupported) {
             pr_err("Unable to resolve which PM table version the system uses -- disabling "
