@@ -210,7 +210,7 @@ enum smu_return_val smu_send_command(struct pci_dev *dev, u32 op,
   // Step 6: If the Response register contains OK, then SMU has finished
   // processing
   //  the message.
-  if (tmp != SMU_Return_OK && !retries) {
+  if (tmp != SMU_Return_OK) {
     mutex_unlock(&amd_smu_mutex);
 
     // The RSP register is still 0, the SMU is still processing the request or
@@ -1224,7 +1224,7 @@ u32 smu_update_pmtable_size(u32 version) {
 
 enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
                                       size_t *len) {
-  u32 ret, version, size;
+  u32 ret, version = 0, size;
 
   // The DRAM base does not change after boot meaning it only needs to be
   //  fetched once.
@@ -1301,12 +1301,14 @@ enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
     g_smu.pm_jiffies = jiffies;
 
     ret = smu_transfer_table_to_dram(dev);
-    if (ret != SMU_Return_OK)
+    if (ret != SMU_Return_OK && ret != SMU_Return_CmdRejectedPrereq &&
+        ret != SMU_Return_CmdRejectedBusy)
       return ret;
 
     if (g_smu.pm_dram_map_size_alt) {
       ret = smu_transfer_2nd_table_to_dram(dev);
-      if (ret != SMU_Return_OK)
+      if (ret != SMU_Return_OK && ret != SMU_Return_CmdRejectedPrereq &&
+          ret != SMU_Return_CmdRejectedBusy)
         return ret;
     }
   }

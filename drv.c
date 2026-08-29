@@ -12,6 +12,7 @@
 #include <linux/sysfs.h>
 #include <uapi/linux/stat.h>
 #include <linux/version.h>
+#include <linux/mutex.h>
 
 #include "smu.h"
 
@@ -87,6 +88,8 @@ static struct ryzen_smu_data {
     .pm_table_read_size   = PM_TABLE_MAX_SIZE,
 };
 
+static DEFINE_MUTEX(drv_probe_mutex);
+
 /* SMU Command Parameters. */
 uint smu_timeout_attempts = 8192;
 
@@ -111,11 +114,14 @@ static ssize_t codename_show(struct kobject *kobj, struct kobj_attribute *attr, 
 }
 
 static ssize_t pm_table_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
+    size_t n;
+
     if (smu_read_pm_table(g_driver.device, g_driver.pm_table, &g_driver.pm_table_read_size) != SMU_Return_OK)
         return 0;
 
-    memcpy(buff, g_driver.pm_table, g_driver.pm_table_read_size);
-    return g_driver.pm_table_read_size;
+    n = min(g_driver.pm_table_read_size, (size_t)PAGE_SIZE);
+    memcpy(buff, g_driver.pm_table, n);
+    return n;
 }
 
 static ssize_t pm_table_version_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
@@ -338,6 +344,19 @@ static int ryzen_smu_get_version(enum smu_mailbox mb, int show) {
 
 static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) {
     enum smu_return_val ret;
+    int result = 0;
+
+    mutex_lock(&drv_probe_mutex);
+
+    if (g_driver.drv_kobj) {
+        mutex_unlock(&drv_probe_mutex);
+        return 0;
+    }
+
+    drv_attrs[MAX_ATTRS_LEN - 5] = NULL;
+    drv_attrs[MAX_ATTRS_LEN - 4] = NULL;
+    drv_attrs[MAX_ATTRS_LEN - 3] = NULL;
+    drv_attrs[MAX_ATTRS_LEN - 2] = NULL;
 
     g_driver.device = dev;
 
@@ -352,13 +371,15 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
     // Detect processor class & figure out MP1/RSMU support.
     if (smu_init(g_driver.device) != 0) {
         pr_err("Failed to initialize the SMU for use");
-        return -ENODEV;
+        result = -ENODEV;
+        goto _PROBE_FAIL;
     }
 
     // Check if MP1 is working as we guarantee this support.
     if (ryzen_smu_get_version(MAILBOX_TYPE_MP1, 1) != 0) {
         pr_err("Failed to obtain the SMU version");
-        return -EINVAL;
+        result = -EINVAL;
+        goto _PROBE_FAIL;
     }
 
     // Check if RSMU is valid to determine if to skip PM table setup.
@@ -377,7 +398,8 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
 
     // Check that PM table options are supported before adding it to the attr list
     ret = smu_transfer_table_to_dram(g_driver.device);
-    if (ret == SMU_Return_OK) {
+    if (ret == SMU_Return_OK || ret == SMU_Return_CmdRejectedPrereq ||
+        ret == SMU_Return_CmdRejectedBusy) {
         ret = smu_get_pm_table_version(g_driver.device, &g_driver.pm_table_version);
         if (ret != SMU_Return_OK && ret != SMU_Return_Unsupported) {
             pr_err("Unable to resolve which PM table version the system uses -- disabling "
@@ -416,24 +438,49 @@ _CONTINUE_SETUP:
     g_driver.drv_kobj = kobject_create_and_add("ryzen_smu_drv", kernel_kobj);
     if (!g_driver.drv_kobj) {
         pr_err("Unable to create sysfs interface");
-        return -ENOMEM;
+        result = -ENOMEM;
+        goto _PROBE_FAIL;
     }
 
-    if (sysfs_create_group(g_driver.drv_kobj, &drv_attr_group))
+    if (sysfs_create_group(g_driver.drv_kobj, &drv_attr_group)) {
+        pr_err("Unable to create sysfs attributes");
         kobject_put(g_driver.drv_kobj);
+        g_driver.drv_kobj = NULL;
+        result = -ENOMEM;
+        goto _PROBE_FAIL;
+    }
 
-    return 0;
+    goto _PROBE_DONE;
+
+_PROBE_FAIL:
+    if (g_driver.pm_table) {
+        kfree(g_driver.pm_table);
+        g_driver.pm_table = NULL;
+    }
+    smu_cleanup();
+
+_PROBE_DONE:
+    mutex_unlock(&drv_probe_mutex);
+    return result;
 }
 
 static void ryzen_smu_remove(struct pci_dev *dev) {
-    // Free allocated resources as well as the SMU
-    if (g_driver.pm_table)
-        kfree(g_driver.pm_table);
+    mutex_lock(&drv_probe_mutex);
 
-    if (g_driver.drv_kobj)
+    // Free allocated resources as well as the SMU
+    if (g_driver.pm_table) {
+        kfree(g_driver.pm_table);
+        g_driver.pm_table = NULL;
+    }
+
+    if (g_driver.drv_kobj) {
         kobject_put(g_driver.drv_kobj);
+        g_driver.drv_kobj = NULL;
+    }
 
     smu_cleanup();
+
+    mutex_unlock(&drv_probe_mutex);
 }
 
 static struct pci_device_id ryzen_smu_id_table[] = {
