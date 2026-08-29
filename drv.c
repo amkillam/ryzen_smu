@@ -111,11 +111,14 @@ static ssize_t codename_show(struct kobject *kobj, struct kobj_attribute *attr, 
 }
 
 static ssize_t pm_table_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
+    size_t n;
+
     if (smu_read_pm_table(g_driver.device, g_driver.pm_table, &g_driver.pm_table_read_size) != SMU_Return_OK)
         return 0;
 
-    memcpy(buff, g_driver.pm_table, g_driver.pm_table_read_size);
-    return g_driver.pm_table_read_size;
+    n = min(g_driver.pm_table_read_size, (size_t)PAGE_SIZE);
+    memcpy(buff, g_driver.pm_table, n);
+    return n;
 }
 
 static ssize_t pm_table_version_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
