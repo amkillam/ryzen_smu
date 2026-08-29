@@ -1224,7 +1224,7 @@ u32 smu_update_pmtable_size(u32 version) {
 
 enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
                                       size_t *len) {
-  u32 ret, version, size;
+  u32 ret, version = 0, size;
 
   // The DRAM base does not change after boot meaning it only needs to be
   //  fetched once.
