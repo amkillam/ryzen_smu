@@ -77,7 +77,8 @@ def read_file_str(file, expectedLen=9):
         print("Read file ({0}) failed with {1}".format(file, len(result)))
         return False
 
-    return result
+    # version contains \n which breaks comparison and introduces extra new lines
+    return result.strip()
 
 
 def read_smn_addr(addr):
@@ -234,4 +235,3 @@ def main():
 
 
 main()
-
