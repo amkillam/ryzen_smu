@@ -316,7 +316,7 @@ static int ryzen_smu_get_version(enum smu_mailbox mb, int show) {
     u32 ver;
 
     ver = smu_get_version(g_driver.device, mb);
-    if (ver >= 0 && ver <= 0xFF) {
+    if (ver >= 0xF0 && ver <= 0xFF) {
         pr_err("Failed to query the %sSMU version: %d",
             mb == MAILBOX_TYPE_RSMU ? "R" : "MP1 ", ver);
         return -EINVAL;
@@ -324,7 +324,9 @@ static int ryzen_smu_get_version(enum smu_mailbox mb, int show) {
 
     // In case this just tests for mailbox functionality, we don't need to output anything.
     if (show) {
-        if (ver & 0xFF000000)
+        if (ver <= 0x0F)
+            sprintf(g_driver.smu_version, "%d", ver);
+        else if (ver & 0xFF000000)
             sprintf(g_driver.smu_version, "%d.%d.%d.%d",
                 (ver >> 24) & 0xff, (ver >> 16) & 0xff, (ver >> 8) & 0xff, ver & 0xff);
         else
