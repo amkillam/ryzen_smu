@@ -21,7 +21,7 @@
  */
 
 /* Maximum size in bytes, of the PM table for any processor codename. */
-#define PM_TABLE_MAX_SIZE                             0x1AB0
+#define PM_TABLE_MAX_SIZE                             0x2D74
 
 /* Specifies the amount of attempts an of polling the SMU for a command response till it fails. */
 #define SMU_RETRIES_MAX                               32768
@@ -91,6 +91,7 @@ enum smu_processor_codename {
     CODENAME_HAWKPOINT,
     CODENAME_STORMPEAK,
     CODENAME_STRIXHALO,
+    CODENAME_SHIMADAPEAK,
     CODENAME_COUNT
 };
 
@@ -193,6 +194,19 @@ u32 smu_get_version(struct pci_dev* dev, enum smu_mailbox mb);
  * Returns the interface version of the MP1 mailbox.
  */
 enum smu_if_version smu_get_mp1_if_version(void);
+
+/**
+ * Returns true when the MP1 mailbox address is known for the running processor.
+ * When false, smu_send_command() refuses MP1 requests.
+ */
+bool smu_mp1_available(void);
+
+/**
+ * Returns true for processors whose SMU refuses a PM table transfer issued before
+ * the first DRAM base query; the probe then lets the first read act as the
+ * capability test instead of transferring first.
+ */
+bool smu_pm_table_base_first(void);
 
 /**
  * Commands the SMU to update the PM table mapped at the DRAM base address.

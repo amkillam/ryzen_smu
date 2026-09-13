@@ -203,7 +203,9 @@ applications, they should make sure this version is within the expected range.
 #### `/sys/kernel/ryzen_smu_drv/version`
 
 Lists the current SMU firmware version in relation to the currently installed
-[AGESA](https://en.wikipedia.org/wiki/AGESA).
+[AGESA](https://en.wikipedia.org/wiki/AGESA). Read from the MP1 mailbox; on
+processors whose MP1 mailbox address is not known (`mp1_if_version` reads 5, see
+below) it is read from the RSMU mailbox instead.
 
 The following are several lists of SMU to AGESA versions:
 
@@ -213,7 +215,9 @@ Note: This file returns a string encoded version represented by the "SMU Version
 
 #### `/sys/kernel/ryzen_smu_drv/mp1_if_version`
 
-Lists the interface version for the MP1 mailbox.
+Lists the interface version for the MP1 mailbox. The value 5 means no MP1
+mailbox is known for the processor (currently Shimada Peak): MP1 commands are
+refused and tools must not index a command table with it.
 
 This can range from v9 to v13 and is indicated by the following table:
 
@@ -340,6 +344,13 @@ Note: File is a 32 bit word encoded in little-endian binary order.
 #### `/sys/kernel/ryzen_smu_drv/pm_table`
 
 On supported platforms, this file contains the PM table for the processor, as updated by the SMU.
+
+Note: The file is a binary attribute served in page-sized chunks. Start at offset 0 and read until
+`pm_table_size` bytes have been received (`libsmu` does this); the read at offset 0 refreshes the
+table from the SMU and the following chunks of the same pass return that snapshot. While another
+pass is still between its first and last chunk, a new pass shares that snapshot instead of
+refreshing underneath it, so overlapping readers each see one generation of the table; a pass that
+never reads to the end holds the snapshot for at most one second.
 
 Note: This file is encoded directly by the SMU and contains an array of 32-bit floating point values
 whose structure is determined by the version of the table.

@@ -18,6 +18,7 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <fcntl.h>
 
@@ -368,6 +369,7 @@ BREAK_OUT:
 
 smu_return_val smu_read_pm_table(smu_obj_t* obj, unsigned char* dst, size_t dst_len) {
     int ret;
+    size_t total;
 
     // Don't attempt to execute without initialization.
     if (!obj->init)
@@ -378,10 +380,20 @@ smu_return_val smu_read_pm_table(smu_obj_t* obj, unsigned char* dst, size_t dst_
 
     pthread_mutex_lock(&obj->lock[SMU_MUTEX_PM]);
 
+    // The table is served in page-sized chunks: the read at offset 0 refreshes it from the
+    // SMU, the following reads of the same pass return that snapshot.
     lseek(obj->fd_pm_table, 0, SEEK_SET);
-    ret = read(obj->fd_pm_table, dst, obj->pm_table_size);
+    total = 0;
+    while (total < obj->pm_table_size) {
+        ret = read(obj->fd_pm_table, dst + total, obj->pm_table_size - total);
+        if (ret < 0 && errno == EINTR)
+            continue;
+        if (ret <= 0)
+            break;
+        total += ret;
+    }
 
-    if (ret != obj->pm_table_size)
+    if (total != obj->pm_table_size)
         ret = SMU_Return_RWError;
     else
         ret = SMU_Return_OK;
