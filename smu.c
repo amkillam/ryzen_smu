@@ -50,6 +50,9 @@ static struct {
   //  refresh the metrics table.
   unsigned long pm_jiffies;
 
+  // Set once a PM table transfer has succeeded in this load.
+  bool pm_transfer_ok;
+
   // Virtual addresses mapped to physical DRAM bases for PM table.
   u8 __iomem *pm_table_virt_addr;
   u8 __iomem *pm_table_virt_addr_alt;
@@ -74,6 +77,7 @@ static struct {
     .pm_dram_map_size = 0,
     .pm_dram_map_size_alt = 0,
     .pm_jiffies = 0,
+    .pm_transfer_ok = false,
 
     .pm_table_virt_addr = NULL,
     .pm_table_virt_addr_alt = NULL,
@@ -385,6 +389,9 @@ int smu_resolve_cpu_class(struct pci_dev *dev) {
   // Zen 5
   else if (cpu_family == 0x1a) {
     switch (cpu_model) {
+    case 0x08: // Shimada Peak (Threadripper 9000 / PRO 9000WX, sTR5)
+      g_smu.codename = CODENAME_SHIMADAPEAK;
+      break;
     case 0x24: // Strix Point (Ryzen AI 9 HX 370, family 0x1A model 0x24)
       g_smu.codename = CODENAME_STRIXPOINT;
       break;
@@ -461,6 +468,14 @@ int smu_init(struct pci_dev *dev) {
     g_smu.addr_rsmu_mb_rsp = 0x3B10A80;
     g_smu.addr_rsmu_mb_args = 0x3B10A88;
     goto LOG_RSMU;
+  case CODENAME_SHIMADAPEAK:
+    // sTR5 parts carry the RSMU command and response registers 0x400 above
+    // Storm Peak; the argument block is unchanged. Sources: ZenStates-Core
+    // Zen5Settings_ShimadaPeak.cs, nwinfo ioctl/ryzen_smu.c, live SMU version read.
+    g_smu.addr_rsmu_mb_cmd = 0x3B10924;
+    g_smu.addr_rsmu_mb_rsp = 0x3B10970;
+    g_smu.addr_rsmu_mb_args = 0x3B10A40;
+    goto LOG_RSMU;
   case CODENAME_VANGOGH:
     pr_debug("RSMU Mailbox: Not supported or unknown, disabling use.");
     goto MP1_DETECT;
@@ -506,6 +521,7 @@ LOG_RSMU:
   case CODENAME_STRIXPOINT:
   case CODENAME_HAWKPOINT:
   case CODENAME_STRIXHALO:
+  case CODENAME_SHIMADAPEAK: // HSMP address unpublished for this part
     goto MP1_DETECT;
   default:
     pr_err("Unknown processor codename: %d", g_smu.codename);
@@ -576,6 +592,12 @@ MP1_DETECT:
     g_smu.addr_mp1_mb_rsp = 0x3b10978;
     g_smu.addr_mp1_mb_args = 0x3b10998;
     break;
+  case CODENAME_SHIMADAPEAK:
+    // MP1 mailbox address is unpublished for this part. Leaving it undefined
+    // makes smu_send_command() refuse MP1 requests; the interface version
+    // stays IF_VERSION_COUNT ("none").
+    g_smu.mp1_if_ver = IF_VERSION_COUNT;
+    break;
   default:
     pr_err("Unknown processor codename: %d", g_smu.codename);
     return -ENODEV;
@@ -644,6 +666,8 @@ const char *getCodeName(enum smu_processor_codename codename) {
     return "Storm Peak";
   case CODENAME_STRIXHALO:
     return "Strix Halo";
+  case CODENAME_SHIMADAPEAK:
+    return "Shimada Peak";
   default:
     return "Undefined";
   }
@@ -662,6 +686,7 @@ void smu_cleanup(void) {
 
   // Set SMU state to uninitialized, requiring a call to smu_init() again.
   g_smu.codename = CODENAME_UNDEFINED;
+  g_smu.pm_transfer_ok = false;
 }
 
 enum smu_processor_codename smu_get_codename(void) { return g_smu.codename; }
@@ -683,6 +708,12 @@ u32 smu_get_version(struct pci_dev *dev, enum smu_mailbox mb) {
 }
 
 enum smu_if_version smu_get_mp1_if_version(void) { return g_smu.mp1_if_ver; }
+
+bool smu_mp1_available(void) { return g_smu.addr_mp1_mb_cmd != 0; }
+
+bool smu_pm_table_base_first(void) {
+  return g_smu.codename == CODENAME_SHIMADAPEAK;
+}
 
 u64 smu_get_dram_base_address(struct pci_dev *dev) {
   u32 fn[3], ret, parts[2];
@@ -708,6 +739,7 @@ u64 smu_get_dram_base_address(struct pci_dev *dev) {
   case CODENAME_RAPHAEL:
   case CODENAME_GRANITERIDGE:
   case CODENAME_STORMPEAK:
+  case CODENAME_SHIMADAPEAK:
     fn[0] = 0x04;
     goto BASE_ADDR_CLASS_1;
   case CODENAME_RENOIR:
@@ -823,6 +855,7 @@ enum smu_return_val smu_transfer_table_to_dram(struct pci_dev *dev) {
   case CODENAME_RAPHAEL:
   case CODENAME_GRANITERIDGE:
   case CODENAME_STORMPEAK:
+  case CODENAME_SHIMADAPEAK:
     fn = 0x03;
     break;
   case CODENAME_CEZANNE:
@@ -920,6 +953,7 @@ enum smu_return_val smu_get_pm_table_version(struct pci_dev *dev,
   case CODENAME_RAPHAEL:
   case CODENAME_GRANITERIDGE:
   case CODENAME_STORMPEAK:
+  case CODENAME_SHIMADAPEAK:
     fn = 0x05;
     break;
   case CODENAME_RENOIR:
@@ -1237,6 +1271,37 @@ u32 smu_update_pmtable_size(u32 version) {
       goto UNKNOWN_PM_TABLE_VERSION;
     }
     break;
+  case CODENAME_SHIMADAPEAK:
+    // Source: ZenStates-Core PowerTable.cs, one row per CCD count.
+    switch (version) {
+    case 0x730204:
+      g_smu.pm_dram_map_size = 0xB1C;
+      break;
+    case 0x730404:
+      g_smu.pm_dram_map_size = 0x1004;
+      break;
+    case 0x730604:
+      g_smu.pm_dram_map_size = 0x14EC;
+      break;
+    case 0x730804:
+      g_smu.pm_dram_map_size = 0x19D4;
+      break;
+    case 0x730A04:
+      g_smu.pm_dram_map_size = 0x1EBC;
+      break;
+    case 0x730C04:
+      g_smu.pm_dram_map_size = 0x23A4;
+      break;
+    case 0x730E04:
+      g_smu.pm_dram_map_size = 0x288C;
+      break;
+    case 0x731004:
+      g_smu.pm_dram_map_size = 0x2D74;
+      break;
+    default:
+      goto UNKNOWN_PM_TABLE_VERSION;
+    }
+    break;
   default:
   UNKNOWN_PM_TABLE_VERSION:
     return SMU_Return_Unsupported;
@@ -1286,7 +1351,8 @@ enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
         g_smu.codename == CODENAME_CHAGALL ||
         g_smu.codename == CODENAME_MILAN ||
         g_smu.codename == CODENAME_HAWKPOINT ||
-        g_smu.codename == CODENAME_STORMPEAK) {
+        g_smu.codename == CODENAME_STORMPEAK ||
+        g_smu.codename == CODENAME_SHIMADAPEAK) {
       ret = smu_get_pm_table_version(dev, &version);
 
       if (ret != SMU_Return_OK) {
@@ -1327,8 +1393,31 @@ enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
     g_smu.pm_jiffies = jiffies;
 
     ret = smu_transfer_table_to_dram(dev);
+    // Shimada Peak: the first transfer after boot can be refused with 0xFD
+    // (prerequisite unmet) and accepted a moment later (seen once at 111 s of
+    // uptime, accepted 230 ms later). Retry once, and only until the first
+    // transfer of this load has succeeded; a persistent refusal is an error.
+    if (ret == SMU_Return_CmdRejectedPrereq && !g_smu.pm_transfer_ok &&
+        g_smu.codename == CODENAME_SHIMADAPEAK) {
+      // The first transfer after boot can be refused with 0xFD and accepted a
+      // moment later (seen once, accepted 250 ms on); allow it one second.
+      int tries = 0;
+
+      do {
+        msleep(250);
+        ret = smu_transfer_table_to_dram(dev);
+        tries++;
+      } while (ret == SMU_Return_CmdRejectedPrereq && tries < 4);
+      if (ret == SMU_Return_OK)
+        pr_info("PM table transfer refused (0xFD), accepted after %d retr%s\n",
+                tries, tries == 1 ? "y" : "ies");
+      else
+        pr_warn_ratelimited("PM table transfer refused (0x%X), %d retries\n",
+                            ret, tries);
+    }
     if (ret != SMU_Return_OK)
       return ret;
+    g_smu.pm_transfer_ok = true;
 
     if (g_smu.pm_dram_map_size_alt) {
       ret = smu_transfer_2nd_table_to_dram(dev);

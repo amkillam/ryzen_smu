@@ -425,16 +425,21 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
         return -ENODEV;
     }
 
-    // Check if MP1 is working as we guarantee this support.
-    if (ryzen_smu_get_version(MAILBOX_TYPE_MP1, 1) != 0) {
-        pr_err("Failed to obtain the SMU version");
-        smu_cleanup();
-        g_driver.device = NULL;
-        return -EINVAL;
+    // Check if MP1 is working as we guarantee this support, where the mailbox is known.
+    if (smu_mp1_available()) {
+        if (ryzen_smu_get_version(MAILBOX_TYPE_MP1, 1) != 0) {
+            pr_err("Failed to obtain the SMU version");
+            smu_cleanup();
+            g_driver.device = NULL;
+            return -EINVAL;
+        }
     }
+    else
+        pr_info("MP1 mailbox unknown on this platform, disabled");
 
-    // Check if RSMU is valid to determine if to skip PM table setup.
-    if (ryzen_smu_get_version(MAILBOX_TYPE_RSMU, 0) == 0) {
+    // Check if RSMU is valid to determine if to skip PM table setup. Without
+    // MP1 the RSMU version is the only one there is, so it is shown.
+    if (ryzen_smu_get_version(MAILBOX_TYPE_RSMU, !smu_mp1_available()) == 0) {
         // We do something absolutely stupid here and use relative offsets to overwrite offsets
         //  in the drv_attrs[] array.
         //
@@ -447,8 +452,13 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
         goto _CONTINUE_SETUP;
     }
 
-    // Check that PM table options are supported before adding it to the attr list
-    ret = smu_transfer_table_to_dram(g_driver.device);
+    // Check that PM table options are supported before adding it to the attr list.
+    // Some SMUs refuse a transfer issued before the DRAM base query (0xFD); for
+    // those the transfer is left to the read below, which queries the base first,
+    // and that read is the capability test. The version query is accepted before
+    // the base on the part this covers, so it keeps its place.
+    ret = smu_pm_table_base_first() ? SMU_Return_OK
+                                    : smu_transfer_table_to_dram(g_driver.device);
     if (ret == SMU_Return_OK) {
         ret = smu_get_pm_table_version(g_driver.device, &g_driver.pm_table_version);
         if (ret != SMU_Return_OK && ret != SMU_Return_Unsupported) {

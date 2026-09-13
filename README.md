@@ -203,7 +203,9 @@ applications, they should make sure this version is within the expected range.
 #### `/sys/kernel/ryzen_smu_drv/version`
 
 Lists the current SMU firmware version in relation to the currently installed
-[AGESA](https://en.wikipedia.org/wiki/AGESA).
+[AGESA](https://en.wikipedia.org/wiki/AGESA). Read from the MP1 mailbox; on
+processors whose MP1 mailbox address is not known (`mp1_if_version` reads 5, see
+below) it is read from the RSMU mailbox instead.
 
 The following are several lists of SMU to AGESA versions:
 
@@ -213,7 +215,9 @@ Note: This file returns a string encoded version represented by the "SMU Version
 
 #### `/sys/kernel/ryzen_smu_drv/mp1_if_version`
 
-Lists the interface version for the MP1 mailbox.
+Lists the interface version for the MP1 mailbox. The value 5 means no MP1
+mailbox is known for the processor (currently Shimada Peak): MP1 commands are
+refused and tools must not index a command table with it.
 
 This can range from v9 to v13 and is indicated by the following table:
 
