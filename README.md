@@ -341,6 +341,13 @@ Note: File is a 32 bit word encoded in little-endian binary order.
 
 On supported platforms, this file contains the PM table for the processor, as updated by the SMU.
 
+Note: The file is a binary attribute served in page-sized chunks. Start at offset 0 and read until
+`pm_table_size` bytes have been received (`libsmu` does this); the read at offset 0 refreshes the
+table from the SMU and the following chunks of the same pass return that snapshot. While another
+pass is still between its first and last chunk, a new pass shares that snapshot instead of
+refreshing underneath it, so overlapping readers each see one generation of the table; a pass that
+never reads to the end holds the snapshot for at most one second.
+
 Note: This file is encoded directly by the SMU and contains an array of 32-bit floating point values
 whose structure is determined by the version of the table.
 
