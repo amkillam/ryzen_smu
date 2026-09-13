@@ -48,7 +48,7 @@ static struct {
 
   // Internal tracker to determine the minimum interval required to
   //  refresh the metrics table.
-  u32 pm_jiffies;
+  unsigned long pm_jiffies;
 
   // Virtual addresses mapped to physical DRAM bases for PM table.
   u8 __iomem *pm_table_virt_addr;
@@ -132,6 +132,7 @@ enum smu_return_val smu_send_command(struct pci_dev *dev, u32 op,
                                      smu_req_args_t *args,
                                      enum smu_mailbox mailbox) {
   u32 retries, tmp, i, rsp_addr, args_addr, cmd_addr;
+  enum smu_return_val ret;
 
   // == Pick the correct mailbox address. ==
   switch (mailbox) {
@@ -167,63 +168,84 @@ enum smu_return_val smu_send_command(struct pci_dev *dev, u32 op,
   mutex_lock(&amd_smu_mutex);
 
   // Step 1: Wait until the RSP register is non-zero.
-  retries = smu_timeout_attempts;
-  do
+  // Both waits are counted loops: udelay(1) plus one SMN read (two PCI config
+  // accesses) per poll, so the bound is a few microseconds times
+  // smu_timeout_attempts, tens of milliseconds by default and well under a
+  // second at the parameter's maximum, the same order as the old busy poll. A
+  // post-decrement in the loop condition wrapped the counter on exhaustion and
+  // turned a silent mailbox into an unbounded busy spin under the mutex.
+  tmp = 0;
+  for (retries = smu_timeout_attempts; retries; retries--) {
     if (smu_read_address(dev, rsp_addr, &tmp) != SMU_Return_OK) {
       mutex_unlock(&amd_smu_mutex);
       pr_warn("Failed to perform initial probe on SMU RSP!\n");
 
       return SMU_Return_PCIFailed;
     }
-  while (tmp == 0 && retries--);
+    if (tmp)
+      break;
+    udelay(1);
+  }
 
   // Step 1.b: A command is still being processed meaning
   //  a new command cannot be issued.
-  if (!retries && !tmp) {
+  if (!tmp) {
     mutex_unlock(&amd_smu_mutex);
-    pr_debug("SMU Service Request Failed: Timeout on initial wait for mailbox "
-             "availability.");
+    pr_warn("SMU Service Request Failed: Timeout on initial wait for mailbox "
+            "availability.\n");
 
     return SMU_Return_CommandTimeout;
   }
 
   // Step 2: Write zero (0) to the RSP register.
-  smu_write_address(dev, rsp_addr, 0);
+  ret = smu_write_address(dev, rsp_addr, 0);
 
   // Step 3: Write the argument(s) into the argument register(s).
-  for (i = 0; i < SMU_REQ_MAX_ARGS; i++)
-    smu_write_address(dev, args_addr + (i * 4), args->args[i]);
+  for (i = 0; ret == SMU_Return_OK && i < SMU_REQ_MAX_ARGS; i++)
+    ret = smu_write_address(dev, args_addr + (i * 4), args->args[i]);
 
   // Step 4: Write the message Id into the Message ID register.
-  smu_write_address(dev, cmd_addr, op);
+  if (ret == SMU_Return_OK)
+    ret = smu_write_address(dev, cmd_addr, op);
+
+  if (ret != SMU_Return_OK) {
+    mutex_unlock(&amd_smu_mutex);
+    pr_warn("Failed to write the SMU mailbox for command 0x%x!\n", op);
+
+    return SMU_Return_PCIFailed;
+  }
 
   // Step 5: Wait until the Response register is non-zero.
-  do
+  tmp = 0;
+  for (retries = smu_timeout_attempts; retries; retries--) {
     if (smu_read_address(dev, rsp_addr, &tmp) != SMU_Return_OK) {
       mutex_unlock(&amd_smu_mutex);
       pr_warn("Failed to perform probe on SMU RSP!\n");
 
       return SMU_Return_PCIFailed;
     }
-  while (tmp == 0 && retries--);
+    if (tmp)
+      break;
+    udelay(1);
+  }
 
   // Step 6: If the Response register contains OK, then SMU has finished
-  // processing
-  //  the message.
-  if (tmp != SMU_Return_OK && !retries) {
+  // processing the message. Any other non-zero value is the SMU's error code
+  // and is returned as such.
+  if (tmp != SMU_Return_OK) {
     mutex_unlock(&amd_smu_mutex);
 
     // The RSP register is still 0, the SMU is still processing the request or
     // has frozen. Either way the command has timed out so indicate as such.
     if (!tmp) {
-      pr_debug("SMU Service Request Failed: Timeout on command (0x%x) after %d "
-               "attempts.",
-               op, smu_timeout_attempts);
+      pr_warn("SMU Service Request Failed: Timeout on command (0x%x) after %d "
+              "attempts.\n",
+              op, smu_timeout_attempts);
 
       return SMU_Return_CommandTimeout;
     }
 
-    pr_debug("SMU Service Request Failed: Response %Xh was unexpected.", tmp);
+    pr_warn("SMU Service Request Failed: Response %Xh was unexpected.\n", tmp);
     return tmp;
   }
 
@@ -917,7 +939,8 @@ enum smu_return_val smu_get_pm_table_version(struct pci_dev *dev,
   smu_args_init(&args, 0);
 
   ret = smu_send_command(dev, fn, &args, MAILBOX_TYPE_RSMU);
-  *version = args.s.arg0;
+  if (ret == SMU_Return_OK)
+    *version = args.s.arg0;
 
   return ret;
 }
@@ -1234,11 +1257,14 @@ enum smu_return_val smu_read_pm_table(struct pci_dev *dev, unsigned char *dst,
   if (g_smu.pm_dram_base == 0 || g_smu.pm_dram_map_size == 0) {
     g_smu.pm_dram_base = smu_get_dram_base_address(dev);
 
-    // Verify returned value isn't an SMU return value.
-    if (g_smu.pm_dram_base < 0xFF && g_smu.pm_dram_base >= 0) {
-      pr_err("Unable to receive the DRAM base address: %X",
-             (u8)g_smu.pm_dram_base);
-      return g_smu.pm_dram_base;
+    // Values up to 0xFF are SMU return codes, not addresses. Never hand the
+    // value back as a status: a base of 0x01 would otherwise read as
+    // SMU_Return_OK.
+    if (g_smu.pm_dram_base <= 0xFF) {
+      pr_err("Unable to receive the DRAM base address: %llX\n",
+             g_smu.pm_dram_base);
+      g_smu.pm_dram_base = 0;
+      return SMU_Return_InvalidArgument;
     }
 
     // Should help us catch where we missed table version initialization in the

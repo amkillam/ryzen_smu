@@ -9,6 +9,10 @@
 #include <linux/string.h>
 #include <linux/init.h>
 #include <linux/kobject.h>
+#include <linux/mutex.h>
+#include <linux/jiffies.h>
+#include <linux/atomic.h>
+#include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <uapi/linux/stat.h>
 #include <linux/version.h>
@@ -44,10 +48,17 @@ MODULE_LICENSE("GPL");
 #define PCI_DEVICE_ID_AMD_MI200_ROOT        0x14bb
 #define PCI_DEVICE_ID_AMD_MI300_ROOT        0x14f8
 
-#define MAX_ATTRS_LEN                      13
+#define MAX_ATTRS_LEN                      12
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
     #error "Unsupported kernel version. Minimum: v4.19"
+#endif
+
+/* bin_attribute read callbacks take a const attribute pointer from v6.16. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+    #define BIN_ATTR_CONST const
+#else
+    #define BIN_ATTR_CONST
 #endif
 
 #define __RO_ATTR(attr) \
@@ -71,6 +82,7 @@ static struct ryzen_smu_data {
     u8*                     pm_table;
     u32                     pm_table_version;
     size_t                  pm_table_read_size;
+    bool                    pm_table_file;
 } g_driver = {
     .device               = NULL,
 
@@ -85,6 +97,7 @@ static struct ryzen_smu_data {
     .pm_table             = NULL,
     .pm_table_version     = 0,
     .pm_table_read_size   = PM_TABLE_MAX_SIZE,
+    .pm_table_file        = false,
 };
 
 /* SMU Command Parameters. */
@@ -110,13 +123,58 @@ static ssize_t codename_show(struct kobject *kobj, struct kobj_attribute *attr, 
     return sprintf(buff, "%02d\n", smu_get_codename());
 }
 
-static ssize_t pm_table_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
-    if (smu_read_pm_table(g_driver.device, g_driver.pm_table, &g_driver.pm_table_read_size) != SMU_Return_OK)
+/* Serialises readers of the shared table buffer. */
+static DEFINE_MUTEX(pm_table_mutex);
+static unsigned int pm_passes_open;      /* passes begun at offset 0 and not yet read to the end */
+static unsigned long pm_last_refresh;    /* jiffies of the last refresh */
+
+/* PM tables can exceed a page (Storm Peak 0x1E3C), so the table is a binary attribute: the kernel
+ * serves it in page-sized chunks and, because .size is set before the file is created, clamps every
+ * read to the table. Readers start at offset 0 and read until they have pm_table_size bytes (see
+ * lib/libsmu.c): the read at offset 0 refreshes the table from the SMU, the following chunks of the
+ * same pass serve that snapshot. So that overlapping readers do not tear each other's passes, the
+ * snapshot is not refreshed while another pass is still between its first and last chunk; a pass
+ * that never reads to the end holds it for at most one second. A read that does not begin at
+ * offset 0 returns the current snapshot. */
+static ssize_t pm_table_read(struct file *filp, struct kobject *kobj, BIN_ATTR_CONST struct bin_attribute *attr,
+                             char *buf, loff_t off, size_t count) {
+    size_t len = PM_TABLE_MAX_SIZE;
+    size_t size;
+
+    if (off < 0)
         return 0;
 
-    memcpy(buff, g_driver.pm_table, g_driver.pm_table_read_size);
-    return g_driver.pm_table_read_size;
+    mutex_lock(&pm_table_mutex);
+    size = g_driver.pm_table_read_size;
+    if ((size_t)off >= size) {
+        mutex_unlock(&pm_table_mutex);
+        return 0;
+    }
+    if (count > size - off)
+        count = size - off;
+    if (off == 0) {
+        if (!pm_passes_open || time_after_eq(jiffies, pm_last_refresh + HZ)) {
+            if (smu_read_pm_table(g_driver.device, g_driver.pm_table, &len) != SMU_Return_OK) {
+                mutex_unlock(&pm_table_mutex);
+                return -EIO;
+            }
+            pm_last_refresh = jiffies;
+            pm_passes_open = 0;
+        }
+        pm_passes_open++;
+    }
+    memcpy(buf, g_driver.pm_table + off, count);
+    if (off + count >= size && pm_passes_open)
+        pm_passes_open--;
+    mutex_unlock(&pm_table_mutex);
+    return count;
 }
+
+static struct bin_attribute dev_battr_pm_table = {
+    .attr = { .name = "pm_table", .mode = S_IRUSR | S_IRGRP | S_IROTH },
+    .read = pm_table_read,
+    /* .size is assigned from the probe's first successful read, before sysfs_create_bin_file(). */
+};
 
 static ssize_t pm_table_version_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {
     ssize_t sz = sizeof(g_driver.pm_table_version);
@@ -271,7 +329,6 @@ __RO_ATTR (version);
 __RO_ATTR (mp1_if_version);
 __RO_ATTR (codename);
 
-__RO_ATTR (pm_table);
 __RO_ATTR (pm_table_size);
 __RO_ATTR (pm_table_version);
 
@@ -299,8 +356,7 @@ static struct attribute *drv_attrs[MAX_ATTRS_LEN] = {
     // RSMU Optional Pointer
     NULL,
 
-    // PM Table Optional Pointers
-    NULL,
+    // PM Table Optional Pointers (size, version; the table itself is a binary attribute)
     NULL,
     NULL,
 
@@ -338,8 +394,21 @@ static int ryzen_smu_get_version(enum smu_mailbox mb, int show) {
 
 static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) {
     enum smu_return_val ret;
+    int err;
 
-    g_driver.device = dev;
+    // Singleton driver: the first root complex to claim the state owns it. Parts
+    // with several matching root complexes probe more than once, concurrently
+    // under asynchronous probing, so the claim is an atomic compare-and-swap. A
+    // later probe returns -ENODEV (which the driver core logs at debug level
+    // only) and must neither overwrite the first device's pointer nor tear its
+    // state down when its own kobject creation fails on the duplicate name.
+    if (cmpxchg(&g_driver.device, NULL, dev) != NULL)
+        return -ENODEV;
+
+    // The optional attribute slots are filled only by the probe that creates the files.
+    drv_attrs[MAX_ATTRS_LEN - 4] = NULL;
+    drv_attrs[MAX_ATTRS_LEN - 3] = NULL;
+    drv_attrs[MAX_ATTRS_LEN - 2] = NULL;
 
     pr_info("loading version: %s", THIS_MODULE->version);
 
@@ -352,12 +421,15 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
     // Detect processor class & figure out MP1/RSMU support.
     if (smu_init(g_driver.device) != 0) {
         pr_err("Failed to initialize the SMU for use");
+        g_driver.device = NULL;
         return -ENODEV;
     }
 
     // Check if MP1 is working as we guarantee this support.
     if (ryzen_smu_get_version(MAILBOX_TYPE_MP1, 1) != 0) {
         pr_err("Failed to obtain the SMU version");
+        smu_cleanup();
+        g_driver.device = NULL;
         return -EINVAL;
     }
 
@@ -368,7 +440,7 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
         //
         // This shouldn't *typically* cause errors unless the array structure is messed with.
         // So, we left a warning above to not touch it.
-        drv_attrs[MAX_ATTRS_LEN - 5] = &dev_attr_rsmu_cmd.attr;
+        drv_attrs[MAX_ATTRS_LEN - 4] = &dev_attr_rsmu_cmd.attr;
     }
     else {
         pr_info("RSMU Mailbox: Disabled or not responding to commands.");
@@ -396,13 +468,11 @@ static int ryzen_smu_probe(struct pci_dev *dev, const struct pci_device_id *id) 
         pr_debug("Probing the PM table for state changes");
         ret = smu_read_pm_table(dev, g_driver.pm_table, &g_driver.pm_table_read_size);
         if (ret == SMU_Return_OK) {
-            pr_debug("Probe succeeded: read %ld bytes", g_driver.pm_table_read_size);
+            pr_debug("Probe succeeded: read %zu bytes", g_driver.pm_table_read_size);
 
-            drv_attrs[MAX_ATTRS_LEN - 4] = &dev_attr_pm_table_size.attr;
-            drv_attrs[MAX_ATTRS_LEN - 3] = &dev_attr_pm_table.attr;
-
-            if (g_driver.pm_table_version)
-                drv_attrs[MAX_ATTRS_LEN - 2] = &dev_attr_pm_table_version.attr;
+            // A non-zero size publishes the binary pm_table attribute below; the size and
+            // version attributes follow it only if that file was created.
+            dev_battr_pm_table.size = g_driver.pm_table_read_size;
         }
         else
             pr_err("Failed to probe the PM table -- disabling feature (%d)", ret);
@@ -416,24 +486,74 @@ _CONTINUE_SETUP:
     g_driver.drv_kobj = kobject_create_and_add("ryzen_smu_drv", kernel_kobj);
     if (!g_driver.drv_kobj) {
         pr_err("Unable to create sysfs interface");
-        return -ENOMEM;
+        err = -ENOMEM;
+        goto FAIL;
     }
 
-    if (sysfs_create_group(g_driver.drv_kobj, &drv_attr_group))
+    // The table file first: its size and version attributes are only offered when it exists.
+    if (dev_battr_pm_table.size) {
+        if (sysfs_create_bin_file(g_driver.drv_kobj, &dev_battr_pm_table)) {
+            pr_err("Unable to create the pm_table attribute -- disabling feature");
+            dev_battr_pm_table.size = 0;
+        }
+        else {
+            g_driver.pm_table_file = true;
+            drv_attrs[MAX_ATTRS_LEN - 3] = &dev_attr_pm_table_size.attr;
+            if (g_driver.pm_table_version)
+                drv_attrs[MAX_ATTRS_LEN - 2] = &dev_attr_pm_table_version.attr;
+        }
+    }
+
+    err = sysfs_create_group(g_driver.drv_kobj, &drv_attr_group);
+    if (err) {
+        pr_err("Unable to create sysfs attribute group (%d)", err);
+        if (g_driver.pm_table_file) {
+            sysfs_remove_bin_file(g_driver.drv_kobj, &dev_battr_pm_table);
+            g_driver.pm_table_file = false;
+        }
         kobject_put(g_driver.drv_kobj);
+        g_driver.drv_kobj = NULL;
+        goto FAIL;
+    }
 
     return 0;
+
+FAIL:
+    if (g_driver.pm_table) {
+        kfree(g_driver.pm_table);
+        g_driver.pm_table = NULL;
+    }
+    dev_battr_pm_table.size = 0;
+    smu_cleanup();
+    g_driver.device = NULL;
+    return err;
 }
 
 static void ryzen_smu_remove(struct pci_dev *dev) {
     // Free allocated resources as well as the SMU
-    if (g_driver.pm_table)
-        kfree(g_driver.pm_table);
+    if (g_driver.pm_table_file) {
+        sysfs_remove_bin_file(g_driver.drv_kobj, &dev_battr_pm_table);
+        g_driver.pm_table_file = false;
+    }
+    dev_battr_pm_table.size = 0;
 
-    if (g_driver.drv_kobj)
+    if (g_driver.pm_table) {
+        kfree(g_driver.pm_table);
+        g_driver.pm_table = NULL;
+    }
+
+    if (g_driver.drv_kobj) {
         kobject_put(g_driver.drv_kobj);
+        g_driver.drv_kobj = NULL;
+    }
+
+    drv_attrs[MAX_ATTRS_LEN - 4] = NULL;
+    drv_attrs[MAX_ATTRS_LEN - 3] = NULL;
+    drv_attrs[MAX_ATTRS_LEN - 2] = NULL;
+    pm_passes_open = 0;
 
     smu_cleanup();
+    g_driver.device = NULL;
 }
 
 static struct pci_device_id ryzen_smu_id_table[] = {
