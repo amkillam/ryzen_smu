@@ -15,6 +15,16 @@ else
 endif
 endif
 
+# A clang-built kernel records clang-only flags (-mstack-alignment,
+# -mretpoline-external-thunk, ...) that gcc rejects, so match its toolchain
+# unless LLVM= is given explicitly.
+ifeq ($(origin LLVM), undefined)
+ifneq ($(shell grep -qs '^CONFIG_CC_IS_CLANG=y' $(KERNEL_BUILD)/.config && echo y),)
+LLVM				:= 1
+endif
+endif
+KMAKE				:= $(MAKE) -C $(KERNEL_BUILD) M=$(CURDIR) $(if $(LLVM),LLVM=$(LLVM))
+
 obj-m				:= $(MOD).o
 $(MOD)-objs		 	:= drv.o smu.o
 
@@ -23,13 +33,13 @@ $(MOD)-objs		 	:= drv.o smu.o
 all: modules
 
 debug:
-	@$(MAKE) -C $(KERNEL_BUILD) M=$(CURDIR) ccflags-y+=-DDEBUG modules
+	@$(KMAKE) ccflags-y+=-DDEBUG modules
 
 modules:
-	@$(MAKE) -C $(KERNEL_BUILD) M=$(CURDIR) modules
+	@$(KMAKE) modules
 
 clean:
-	@$(MAKE) -C $(KERNEL_BUILD) M=$(CURDIR) clean
+	@$(KMAKE) clean
 	rm -rf *.o
 
 dkms-install:
