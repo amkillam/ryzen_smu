@@ -36,6 +36,7 @@
 
 #define PROGRAM_VERSION                 "1.0"
 #define PM_TABLE_SUPPORTED_VERSION      0x240903
+#define PM_TABLE_ZEN5_VERSION           0x620205
 
 #define READ_SMN_V1(offs) { if (smu_read_smn_addr(&obj, offs + offset, &value1) != SMU_Return_OK) goto _READ_ERROR; }
 #define READ_SMN_V2(offs) { if (smu_read_smn_addr(&obj, offs + offset, &value2) != SMU_Return_OK) goto _READ_ERROR; }
@@ -209,6 +210,40 @@ typedef struct {
     float MP5_BUSY[1];
 } pm_table_0x240903, *ppm_table_0x240903;
 
+// Zen 5 Granite Ridge (Ryzen 9000), pm table version 0x620205 (0x994 bytes).
+// Field mappings were verified on a Ryzen 9 9950X at idle and under synthetic
+// load, cross-checked against RAPL (msr), k10temp and cpufreq. The per-core
+// layout follows the pattern of pm table 0x620105 (9800X3D, 8 cores) from
+// issue #42, scaled to 16 cores; note that the 0x620105 layout differs from
+// this one (see github.com/Kyworn/gnr-smu for the 0x620105 map).
+typedef struct {
+    float reserved_000[2];
+    float PPT_LIMIT;           // d[2]  W, 200 on stock 9950X BIOS
+    float PPT_VALUE;           // d[3]  W, package power (PPT accumulator)
+    float reserved_004[4];
+    float TDC_LIMIT;           // d[8]  A, 160 stock
+    float TDC_VALUE;           // d[9]  A
+    float THM_LIMIT;           // d[10] C, 95 stock
+    float THM_VALUE;           // d[11] C, matches k10temp (Tctl)
+    float reserved_012[8];
+    float SOCKET_POWER;        // d[20] W, package power
+    float reserved_021[42];
+    float EDC_LIMIT;           // d[63] A, 225 stock; no live EDC value in the table
+    float reserved_064[7];
+    float FCLK_FREQ;           // d[71] MHz
+    float reserved_072[3];
+    float UCLK_FREQ;           // d[75] MHz
+    float reserved_076[3];
+    float MEMCLK_FREQ;         // d[79] MHz
+    float reserved_080[221];
+    float CORE_IDD[16];        // d[301..316] A, current per core
+    float CORE_VOLTAGE[16];    // d[317..332] V per core
+    float CORE_TEMP[16];       // d[333..348] C per core
+    float CORE_FREQ[16];       // d[349..364] GHz per core
+    float CORE_POWER[16];      // d[365..380] W per core
+    float reserved_381[232];
+} pm_table_0x620205, *ppm_table_0x620205;
+
 static smu_obj_t obj;
 static int update_time_s = 1;
 
@@ -228,8 +263,14 @@ void print_memory_timings() {
         bool_str[(value1 >> 4 & 0x7F) != 0 || (value2 >> 4 & 0x7F) != 0]);
 
     READ_SMN_V1(0x50200); READ_SMN_V2(0x50204);
+    // On family 0x1A (Zen 5) the UMC register reports the memory clock
+    // directly in MHz (verified on DDR5-6000: 0x50200 & 0xffff = 3000);
+    // on earlier families the encoded form is (val & 0x7f)/3*100.
+    float memclk = obj.codename == CODENAME_GRANITERIDGE
+        ? (float)(value1 & 0xffff)
+        : (value1 & 0x7f) / 3.f * 100.f;
     fprintf(stdout, "Memory Clock: %.0f MHz\nGDM: %s\nCR: %s\nTcl: %d\nTras: %d\nTrcdrd: %d\nTrcdwr: %d\n",
-        (value1 & 0x7f) / 3.f * 100.f,
+        memclk,
         bool_str[((value1 >> 11) & 1) == 1],
         ((value1 & 0x400) >> 10) != 0 ? "2T" : "1T",
         value2 & 0x3f,
@@ -465,6 +506,87 @@ const char* get_pbo_scalar(smu_obj_t* obj) {
     return buf;
 }
 
+// Zen 5 Granite Ridge PM monitor. The field mapping for pm table version
+// 0x620205 was verified on a Ryzen 9 9950X; see the struct definition for
+// per-field status. Values for some cores may read stale while those
+// cores are sleeping.
+void start_pm_monitor_zen5() {
+    float peak_core_frequency = 0, peak_temp = 0, core_power_sum = 0;
+    const char* name;
+    unsigned int cores, ccds, ccxs, cores_per_ccx, i;
+    ppm_table_0x620205 pmt;
+    unsigned char *pm_buf;
+
+    name = get_processor_name();
+    get_processor_topology(&ccds, &ccxs, &cores_per_ccx, &cores);
+
+    if (cores > 16)
+        cores = 16;
+
+    pm_buf = calloc(obj.pm_table_size, sizeof(unsigned char));
+    pmt = (ppm_table_0x620205)pm_buf;
+
+    while(1) {
+        if (smu_read_pm_table(&obj, pm_buf, obj.pm_table_size) != SMU_Return_OK)
+            continue;
+
+        fprintf(stdout, "\e[1;1H\e[2J");
+
+        fprintf(stdout, "╭────────────────────────────────────────────────┬─────────────────────────────────────────────────╮\n");
+        print_line("CPU Model", name);
+        print_line("Processor Code Name", smu_codename_to_str(&obj));
+        // get_processor_topology() reads CCD fuses that are family-specific;
+        // they resolve to 0 on Zen 5, so only show the breakdown when valid.
+        if (ccds)
+            print_line("Core Configuration", "%d (%d-%d-%d)", cores, ccds, ccxs, cores_per_ccx);
+        else
+            print_line("Core Configuration", "%d", cores);
+        print_line("SMU FW Version", "v%s", smu_get_fw_version(&obj));
+        fprintf(stdout, "╰────────────────────────────────────────────────┴─────────────────────────────────────────────────╯\n");
+
+        peak_core_frequency = peak_temp = core_power_sum = 0;
+
+        fprintf(stdout, "╭─────────┬─────────────────────────────────────────────────────────────╮\n");
+        for (i = 0; i < cores; i++) {
+            float freq = pmt->CORE_FREQ[i] * 1000.f;
+
+            if (peak_core_frequency < freq)
+                peak_core_frequency = freq;
+            if (peak_temp < pmt->CORE_TEMP[i])
+                peak_temp = pmt->CORE_TEMP[i];
+            core_power_sum += pmt->CORE_POWER[i];
+
+            core_print_line(i, "%6.0f MHz | %6.3f W | %1.3f V | %6.2f C | %6.3f A",
+                freq, pmt->CORE_POWER[i], pmt->CORE_VOLTAGE[i],
+                pmt->CORE_TEMP[i], pmt->CORE_IDD[i]);
+        }
+        fprintf(stdout, "╰─────────┴─────────────────────────────────────────────────────╯\n");
+
+        fprintf(stdout, "╭────────────────────────────────────────────────┬─────────────────────────────────────────────────╮\n");
+        print_line("Current Temperature", "%8.2f C", pmt->THM_VALUE);
+        print_line("Thermal Junction Limit", "%8.2f C", pmt->THM_LIMIT);
+        print_line("Package Power", "%8.4f W", pmt->SOCKET_POWER);
+        print_line("PPT", "%4.4f W | %7.0f  W | %8.2f %%", pmt->PPT_VALUE, pmt->PPT_LIMIT,
+            (pmt->PPT_VALUE / pmt->PPT_LIMIT * 100));
+        print_line("TDC", "%4.4f A | %7.0f  A | %8.2f %%", pmt->TDC_VALUE, pmt->TDC_LIMIT,
+            (pmt->TDC_VALUE / pmt->TDC_LIMIT * 100));
+        print_line("EDC Limit", "%8.0f A", pmt->EDC_LIMIT);
+        print_line("Fabric Clock", "%8.0f MHz", pmt->FCLK_FREQ);
+        print_line("Uncore Clock", "%8.0f MHz", pmt->UCLK_FREQ);
+        print_line("Memory Clock", "%8.0f MHz", pmt->MEMCLK_FREQ);
+        print_line("Coupled Mode", "%8s", pmt->UCLK_FREQ == pmt->MEMCLK_FREQ ? "ON" : "OFF");
+        print_line("Peak Core Frequency", "%8.0f MHz", peak_core_frequency);
+        print_line("Peak Core Temperature", "%8.2f C", peak_temp);
+        fprintf(stdout, "╰────────────────────────────────────────────────┴─────────────────────────────────────────────────╯\n");
+
+        // Hide Cursor
+        fprintf(stdout, "\e[?25l");
+
+        fflush(stdout);
+        sleep(update_time_s);
+    }
+}
+
 void start_pm_monitor(int force) {
     float total_usage, peak_core_frequency, core_voltage, core_frequency, total_core_voltage,
         average_voltage, package_sleep_time, core_sleep_time, edc_value, total_core_C6;
@@ -479,9 +601,15 @@ void start_pm_monitor(int force) {
         exit(0);
     }
 
-    if (!force && obj.pm_table_version != PM_TABLE_SUPPORTED_VERSION) {
+    if (!force && obj.pm_table_version != PM_TABLE_SUPPORTED_VERSION &&
+        obj.pm_table_version != PM_TABLE_ZEN5_VERSION) {
         fprintf(stderr, "PM Table version is not currently suppported. Run with \"-f\" flag to ignore this.\n");
         exit(0);
+    }
+
+    if (obj.pm_table_version == PM_TABLE_ZEN5_VERSION) {
+        start_pm_monitor_zen5();
+        return;
     }
 
     name        = get_processor_name();
